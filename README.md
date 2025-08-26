@@ -27,8 +27,4 @@ It aggregates prices from Indian retailers (Amazon, Flipkart, PrimeABGB, MDCompu
    - Retailers (PrimeABGB, MDComputers, Vedant) → WebScraping  
 
 2. Store raw + processed data in **MongoDB**.  
-3. Build a **scraping pipeline** with retry logic & proxy rotation.  
-
----
-
-## 📂 Project Structure (current stage)
+3. Build a **scraping pipeline** with retry logic & proxy rotation. 
