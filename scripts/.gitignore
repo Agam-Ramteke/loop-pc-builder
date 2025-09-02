@@ -1,0 +1,33 @@
+# Python cache & build
+__pycache__/
+*.py[cod]
+*.egg
+*.egg-info/
+dist/
+build/
+*.log
+
+# Virtual Environments
+venv/
+env/
+*.env
+
+# IDEs
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Scrapy/Selenium
+.scrapy/
+selenium_screenshots/
+*.har
+
+# Data files (don’t commit large dumps)
+data/
+*.csv
+*.json
+*.db
+*.sqlite
