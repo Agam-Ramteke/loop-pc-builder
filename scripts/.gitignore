@@ -25,9 +25,36 @@ Thumbs.db
 selenium_screenshots/
 *.har
 
-# Data files (don’t commit large dumps)
-data/
-*.csv
-*.json
+# Data directories (snapshots, raw dumps)
+Raw_data/
+individual_snapshots/
+product_images/
+
+# Ignore large dump formats globally
 *.db
 *.sqlite
+*.html
+*.csv
+*.jsonl
+*.parquet
+*.zip
+*.tar.gz
+
+# Allow configs & small JSONs
+!*.config.json
+!config.json
+
+# Node/JS stuff if any
+node_modules/
+*.tgz
+
+# Logs
+*.log
+
+# Misc large files
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.pdf
+
