@@ -1,0 +1,474 @@
+[
+  {
+    "name": "AMD Athlon 3000G Processor with Radeon Vega 3 Graphics",
+    "url": "https://mdcomputers.in/product/amd-athlon-3000g-desktop-processor/processor",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/amd/yd3000c6fhsbx/yd3000c6fhsbx-image-main.webp",
+    "original_price": "₹6,500",
+    "discounted_price": "₹3,680",
+    "discount": "-43%"
+  },
+  {
+    "name": "AMD Ryzen 3 3200G Processor with Radeon Vega 8 Graphics",
+    "url": "https://mdcomputers.in/product/amd-ryzen-3-3200g-yd3200c5fhbox-desktop-processor/processor",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/amd/ryzen-3-3200g/3200g--(1).jpg",
+    "original_price": "₹13,500",
+    "discounted_price": "₹5,450",
+    "discount": "-60%"
+  },
+  {
+    "name": "AMD Ryzen 3 4300G Processor with Radeon Graphics",
+    "url": "https://mdcomputers.in/product/amd-ryzen-3-4300g-100-100000144box-desktop-processor/processor",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/amd/ryzen-3-4300g%20/ryzen3-4300g-image-main.jpg",
+    "original_price": "₹22,000",
+    "discounted_price": "₹6,320",
+    "discount": "-71%"
+  },
+  {
+    "name": "AMD Ryzen 5 3400G Processor with Radeon RX Vega 11 Graphics",
+    "url": "https://mdcomputers.in/product/amd-ryzen-5-3400g-yd3400c5fhbox-desktop-processor/processor",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/amd/ryzen-5-3400g/3400g-(1).jpg",
+    "original_price": "₹21,500",
+    "discounted_price": "₹6,369",
+    "discount": "-70%"
+  },
+  {
+    "name": "AMD Ryzen 5 5500 Processor",
+    "url": "https://mdcomputers.in/product/amd-ryzen-5-5500-100-100000457box-desktop-processor/processor",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/amd/100-100000457box/100-100000457box-image-main.jpg",
+    "original_price": "₹19,000",
+    "discounted_price": "₹6,849",
+    "discount": "-64%"
+  },
+  {
+    "name": "Intel Core I3-10105F Processor",
+    "url": "https://mdcomputers.in/product/intel-i3-10105f-bx8070110105f-desktop-processor/processor",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/intel/i3-10105f/i3-10105f-image-1.jpg",
+    "original_price": "₹11,100",
+    "discounted_price": "₹7,450",
+    "discount": "-33%"
+  },
+  {
+    "name": "Intel Core i3-12100F Processor",
+    "url": "https://mdcomputers.in/product/intel-core-i3-12100f-bx8071512100f-desktop-processor/processor",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/intel/bx8071512100f/intel-12th-gen-i3-12100f-bx8071512100f-image-02.jpg",
+    "original_price": "₹15,000",
+    "discounted_price": "₹7,460",
+    "discount": "-50%"
+  },
+  {
+    "name": "Intel Core i3-14100F Processor",
+    "url": "https://mdcomputers.in/product/intel-i3-14100f-bx8071514100f-desktop-processor/processor",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/intel/i3-14100f/i3-14100f-image-main.jpg",
+    "original_price": "₹15,400",
+    "discounted_price": "₹8,600",
+    "discount": "-44%"
+  },
+  {
+    "name": "Intel Core i5-10400F Processor",
+    "url": "https://mdcomputers.in/product/intel-i5-10400f-bx8070110400f-desktop-processor/processor",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/intel/bx8070110400f/bx8070110400f-image-2.jpg",
+    "original_price": "₹12,000",
+    "discounted_price": "₹8,720",
+    "discount": "-27%"
+  },
+  {
+    "name": "Intel Core i3-10105 Processor",
+    "url": "https://mdcomputers.in/product/intel-i3-10105-bx8070110105-desktop-processor/processor",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/intel/bx8070110105/bx8070110105_image_main.jpg",
+    "original_price": "₹15,750",
+    "discounted_price": "₹10,450",
+    "discount": "-34%"
+  },
+  {
+    "name": "AMD Ryzen 5 5600X Processor",
+    "url": "https://mdcomputers.in/product/amd-ryzen-5-5600x-100-100000065box-desktop-processor/processor",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/amd/100-100000065box/100-100000065box-image-main.jpg",
+    "original_price": "₹34,400",
+    "discounted_price": "₹11,250",
+    "discount": "-67%"
+  },
+  {
+    "name": "Intel Core i3-12100 Processor",
+    "url": "https://mdcomputers.in/product/intel-i3-12100-bx8071512100-desktop-processor/processor",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/intel/bx8071512100/bx8071512100-image_main.jpg",
+    "original_price": "₹19,000",
+    "discounted_price": "₹11,300",
+    "discount": "-41%"
+  },
+  {
+    "name": "Intel Core i3-14100 Processor",
+    "url": "https://mdcomputers.in/product/intel-i3-14100-bx8071514100-desktop-processor/processor",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/intel/i3-14100/i3-14100-image-main.jpg",
+    "original_price": "₹20,250",
+    "discounted_price": "₹11,360",
+    "discount": "-44%"
+  },
+  {
+    "name": "Intel Core i5-11400 Processor",
+    "url": "https://mdcomputers.in/product/intel-i5-11400-bx8070811400-desktop-processor/processor",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/intel/bx8070811400/bx8070811400-image-main.jpg",
+    "original_price": "₹15,500",
+    "discounted_price": "₹11,480",
+    "discount": "-26%"
+  },
+  {
+    "name": "AMD Ryzen 5 5600GT Processor with Radeon Graphics",
+    "url": "https://mdcomputers.in/product/amd-ryzen-5-5600gt-100-100001488box-desktop-processor/processor",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/amd/100-100001488box/ryzen-5-5600gt-image-main.jpg",
+    "original_price": "₹22,000",
+    "discounted_price": "₹11,780",
+    "discount": "-46%"
+  },
+  {
+    "name": "Intel Core i5-12400F Processor",
+    "url": "https://mdcomputers.in/product/intel-i5-12400f-bx8071512400f-desktop-processor/processor",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/intel/bx8071512400f/bx8071512400f.jpg",
+    "original_price": "₹18,000",
+    "discounted_price": "₹12,050",
+    "discount": "-33%"
+  },
+  {
+    "name": "Intel Core i5-10400 Processor",
+    "url": "https://mdcomputers.in/product/intel-i5-10400-bx8070110400-desktop-processor/processor",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/intel/bx8070110400/bx8070110400-image-main.jpg",
+    "original_price": "₹19,500",
+    "discounted_price": "₹12,250",
+    "discount": "-37%"
+  },
+  {
+    "name": "Intel Core i5-13400F Processor",
+    "url": "https://mdcomputers.in/product/intel-i5-13400f-bx8071513400f-desktop-processor/processor",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/intel/i5-13400f/bx8071513400f-image-main.jpg",
+    "original_price": "₹28,950",
+    "discounted_price": "₹13,060",
+    "discount": "-55%"
+  },
+  {
+    "name": "AMD Ryzen 5 8500G Processor with Radeon Graphics",
+    "url": "https://mdcomputers.in/product/amd-ryzen-5-8500g-100-100000931box-desktop-processor/processor",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/amd/ryzen-5-8500g/ryzen-5-8500g-image-main.jpg",
+    "original_price": "₹29,999",
+    "discounted_price": "₹14,660",
+    "discount": "-51%"
+  },
+  {
+    "name": "Intel Core i5-12400 Desktop Processor",
+    "url": "https://mdcomputers.in/product/intel-core-i5-12400-bx8071512400-desktop-processor/processor",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/intel/bx8071512400/bx8071512400-image_main.jpg",
+    "original_price": "₹24,000",
+    "discounted_price": "₹14,800",
+    "discount": "-38%"
+  },
+  {
+    "name": "Intel Core i5-14400F Processor",
+    "url": "https://mdcomputers.in/product/intel-i5-14400f-bx8071514400f-desktop-processor/processor?page=2",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/intel/i5-14400f/i5-14400f-image-main.jpg",
+    "original_price": "₹26,900",
+    "discounted_price": "₹15,500",
+    "discount": "-42%"
+  },
+  {
+    "name": "AMD Ryzen 7 5800X Processor",
+    "url": "https://mdcomputers.in/product/amd-ryzen-7-5800x-100-100000063wof-desktop-processor/processor?page=2",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/amd/100-100000063wof/100-100000063wof-image_main.jpg",
+    "original_price": "₹41,650",
+    "discounted_price": "₹16,280",
+    "discount": "-61%"
+  },
+  {
+    "name": "AMD Ryzen 7 5700G Processor with Radeon Graphics",
+    "url": "https://mdcomputers.in/product/amd-ryzen-7-5700g-100-100000263box-desktop-processor/processor?page=2",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/amd/ryzen-7-5700g/5700g-image-main.jpg",
+    "original_price": "₹47,500",
+    "discounted_price": "₹16,300",
+    "discount": "-66%"
+  },
+  {
+    "name": "Intel Core i5-14400 Processor",
+    "url": "https://mdcomputers.in/product/intel-i5-14400-bx8071514400-desktop-processor/processor?page=2",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/intel/i5-14400/i5-14400-image-main.jpg",
+    "original_price": "₹30,300",
+    "discounted_price": "₹16,700",
+    "discount": "-45%"
+  },
+  {
+    "name": "Intel Core i5-12600K Processor",
+    "url": "https://mdcomputers.in/product/intel-i5-12600k-bx8071512600k-desktop-processor/processor?page=2",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/intel/bx8071512600k/intel-i5-12600k-image-02.jpg",
+    "original_price": "₹36,540",
+    "discounted_price": "₹17,850",
+    "discount": "-51%"
+  },
+  {
+    "name": "AMD Ryzen 5 7600 Processor with Radeon Graphics",
+    "url": "https://mdcomputers.in/product/amd-ryzen-5-7600-100-100001015box-desktop-processor/processor?page=2",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/amd/ryzen-5-7600/ryzen5-7600-image-main.jpg",
+    "original_price": "₹45,000",
+    "discounted_price": "₹18,290",
+    "discount": "-59%"
+  },
+  {
+    "name": "AMD Ryzen 5 7600X Processor with Radeon Graphics",
+    "url": "https://mdcomputers.in/product/amd-ryzen-5-7600x-100-100000593wof-desktop-processor/processor?page=2",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/amd/100-100000593wof/update/100-100000593wof-image-main.jpg",
+    "original_price": "₹49,000",
+    "discounted_price": "₹19,200",
+    "discount": "-61%"
+  },
+  {
+    "name": "Intel Core i5-13600KF Processor",
+    "url": "https://mdcomputers.in/product/intel-i5-13600kf-bx8071513600kf-desktop-processor/processor?page=2",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/intel/bx8071513600kf/bx8071513600kf-image-main.jpg",
+    "original_price": "₹34,999",
+    "discounted_price": "₹20,400",
+    "discount": "-42%"
+  },
+  {
+    "name": "AMD Ryzen 5 9600X Processor with Radeon Graphics",
+    "url": "https://mdcomputers.in/product/amd-ryzen-5-9600x-100-100001405wof-desktop-processor/processor?page=2",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/amd/100-100001405wof/100-100001405wof-image-main0.jpg",
+    "original_price": "₹47,000",
+    "discounted_price": "₹21,650",
+    "discount": "-54%"
+  },
+  {
+    "name": "Intel Core i7-12700F Processor",
+    "url": "https://mdcomputers.in/product/intel-i7-12700f-bx8071512700f-desktop-processor/processor?page=2",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/intel/bx8071512700f/12700f-main-image.jpg",
+    "original_price": "₹48,000",
+    "discounted_price": "₹22,200",
+    "discount": "-54%"
+  },
+  {
+    "name": "Intel Core i5-14600K Processor",
+    "url": "https://mdcomputers.in/product/intel-i5-14600k-bx8071514600k-desktop-processor/processor?page=2",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/intel/i5-14600k/i5-14600k-image-main.jpg",
+    "original_price": "₹54,990",
+    "discounted_price": "₹22,900",
+    "discount": "-58%"
+  },
+  {
+    "name": "Intel Core i5-14500 Processor",
+    "url": "https://mdcomputers.in/product/intel-i5-14500-bx8071514500-desktop-processor/processor?page=2",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/intel/i5-14500/i5-14500-image-main.jpg",
+    "original_price": "₹34,200",
+    "discounted_price": "₹23,960",
+    "discount": "-30%"
+  },
+  {
+    "name": "Intel Core i7-12700KF Processor",
+    "url": "https://mdcomputers.in/product/intel-i7-12700kf-bx8071512700kf-desktop-processor/processor?page=2",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/intel/bx8071512700kf/intel-i7-12700kf-12th-gen-processor-image-main.jpg",
+    "original_price": "₹47,500",
+    "discounted_price": "₹24,600",
+    "discount": "-48%"
+  },
+  {
+    "name": "Intel Core i7-11700K Processor",
+    "url": "https://mdcomputers.in/product/intel-i7-11700k-bx8070811700k-desktop-processor/processor?page=2",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/intel/bx8070811700k/bx8070811700k-image-1.jpg",
+    "original_price": "₹48,000",
+    "discounted_price": "₹26,850",
+    "discount": "-44%"
+  },
+  {
+    "name": "Intel Core i7-12700K Processor",
+    "url": "https://mdcomputers.in/product/intel-i7-12700k-bx8071512700k-desktop-processor/processor?page=2",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/intel/bx8071512700k/intel-i7-12700k-image-main.jpg",
+    "original_price": "₹52,940",
+    "discounted_price": "₹27,200",
+    "discount": "-49%"
+  },
+  {
+    "name": "Intel Core Ultra 5 245KF Processor",
+    "url": "https://mdcomputers.in/product/intel-ultra-5-245kf-bx80768245kf-desktop-processor/processor?page=2",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/intel/ultra-5-245kf/ultra-5-245kf-image-main.jpg",
+    "original_price": "₹41,100",
+    "discounted_price": "₹27,800",
+    "discount": "-32%"
+  },
+  {
+    "name": "AMD Ryzen 9 5900XT Processor",
+    "url": "https://mdcomputers.in/product/amd-ryzen-9-5900xt-100-100001581wof-desktop-processor/processor?page=2",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/amd/100-100001581wof/ryzen-9-5900xt-image-main.jpg",
+    "original_price": "₹59,000",
+    "discounted_price": "₹28,280",
+    "discount": "-52%"
+  },
+  {
+    "name": "AMD Ryzen 7 7700 Processor with Radeon Graphics",
+    "url": "https://mdcomputers.in/product/amd-ryzen-7-7700-100-100000592box-desktop-processor/processor?page=2",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/amd/ryzen-7-7700/ryzen7-7700-image-main.jpg",
+    "original_price": "₹60,000",
+    "discounted_price": "₹29,000",
+    "discount": "-52%"
+  },
+  {
+    "name": "Intel Core Ultra 5 245K Processor",
+    "url": "https://mdcomputers.in/product/intel-ultra-5-245k-bx80768245k-desktop-processor/processor?page=2",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/intel/ultra-5-245k/ultra-5-245k-image-main.jpg",
+    "original_price": "₹40,200",
+    "discounted_price": "₹29,000",
+    "discount": "-28%"
+  },
+  {
+    "name": "AMD Ryzen 7 7700X Processor with Radeon Graphics",
+    "url": "https://mdcomputers.in/product/amd-ryzen-7-7700x-100-100000591wof-desktop-processor/processor?page=2",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/amd/100-100000591wof/update/100-100000591wof-main.jpg",
+    "original_price": "₹60,000",
+    "discounted_price": "₹30,350",
+    "discount": "-49%"
+  },
+  {
+    "name": "Intel Core i7-14700F Processor",
+    "url": "https://mdcomputers.in/product/intel-i7-14700f-bx8071514700f-desktop-processor/processor?page=3",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/intel/i7-14700f/i7-14700f-image-main.jpg",
+    "original_price": "₹51,900",
+    "discounted_price": "₹30,560",
+    "discount": "-41%"
+  },
+  {
+    "name": "AMD Ryzen 7 9700X Processor with Radeon Graphics",
+    "url": "https://mdcomputers.in/product/amd-ryzen-7-9700x-100-100001404wof-desktop-processor/processor?page=3",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/amd/100-100001404wof/100-100001404wof-image-main.jpg",
+    "original_price": "₹60,000",
+    "discounted_price": "₹30,560",
+    "discount": "-49%"
+  },
+  {
+    "name": "Intel Core Ultra 7 265KF Processor",
+    "url": "https://mdcomputers.in/product/intel-ultra-7-265kf-bx80768265kf-desktop-processor/processor?page=3",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/intel/ultra-7-265kf/ultra-7-265kf-image-main.jpg",
+    "original_price": "₹54,600",
+    "discounted_price": "₹31,800",
+    "discount": "-42%"
+  },
+  {
+    "name": "Intel Core i7-14700 Processor",
+    "url": "https://mdcomputers.in/product/intel-i7-14700-bx8071514700-desktop-processor/processor?page=3",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/intel/i7-14700/i7-14700-image-main.jpg",
+    "original_price": "₹49,999",
+    "discounted_price": "₹32,360",
+    "discount": "-35%"
+  },
+  {
+    "name": "AMD Ryzen 9 5950X Processor",
+    "url": "https://mdcomputers.in/product/amd-ryzen-9-5950x-100-100000059wof-desktop-processor/processor?page=3",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/amd/100-100000059wof/100-100000059wof-image-main.jpg",
+    "original_price": "₹76,049",
+    "discounted_price": "₹32,850",
+    "discount": "-57%"
+  },
+  {
+    "name": "Intel Core Ultra 7 265K Processor",
+    "url": "https://mdcomputers.in/product/intel-ultra-7-265k-bx80768265k-desktop-processor/processor?page=3",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/intel/ultra-7-265k/ultra-7-265k-image-main.jpg",
+    "original_price": "₹56,850",
+    "discounted_price": "₹33,600",
+    "discount": "-41%"
+  },
+  {
+    "name": "Intel Core i7-14700KF Processor",
+    "url": "https://mdcomputers.in/product/intel-i7-14700kf-bx8071514700kf-desktop-processor/processor?page=3",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/intel/i7-14700kf/i7-14700kf-image-main.jpg",
+    "original_price": "₹40,500",
+    "discounted_price": "₹34,160",
+    "discount": "-16%"
+  },
+  {
+    "name": "AMD Ryzen 9 7900X Processor with Radeon Graphics",
+    "url": "https://mdcomputers.in/product/amd-ryzen-9-7900x-100-100000589wof-desktop-processor/processor?page=3",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/amd/100-100000589wof/update/100-100000589wof-image-main.jpg",
+    "original_price": "₹77,000",
+    "discounted_price": "₹34,820",
+    "discount": "-55%"
+  },
+  {
+    "name": "Intel Core i7-14700K Processor",
+    "url": "https://mdcomputers.in/product/intel-i7-14700k-bx8071514700k-desktop-processor/processor?page=3",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/intel/i7-14700k/i7-14700k-image-main.jpg",
+    "original_price": "₹42,700",
+    "discounted_price": "₹35,750",
+    "discount": "-16%"
+  },
+  {
+    "name": "Intel Core i9-12900K Processor",
+    "url": "https://mdcomputers.in/product/intel-i9-12900k-bx8071512900k-desktop-processor/processor?page=3",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/intel/bx8071512900k/i9-12900k-image-10.jpg",
+    "original_price": "₹89,999",
+    "discounted_price": "₹36,570",
+    "discount": "-59%"
+  },
+  {
+    "name": "AMD Ryzen 7 7800X3D Processor with Radeon Graphics",
+    "url": "https://mdcomputers.in/product/amd-ryzen-7-7800x3d-100-100000910wof-desktop-processor/processor?page=3",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/amd/ryzen-7-7800x3d/100-100000910wof-image-main.jpg",
+    "original_price": "₹50,000",
+    "discounted_price": "₹36,999",
+    "discount": "-26%"
+  },
+  {
+    "name": "AMD Ryzen 9 9900X Processor with Radeon Graphics",
+    "url": "https://mdcomputers.in/product/amd-ryzen-9-9900x-100-100000662wof-desktop-processor/processor?page=3",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/amd/100-100000662wof/100-100000662wof-image-main.jpg",
+    "original_price": "₹99,999",
+    "discounted_price": "₹41,000",
+    "discount": "-59%"
+  },
+  {
+    "name": "Intel Core i9-14900KS Desktop Processor",
+    "url": "https://mdcomputers.in/product/intel-i9-14900ks-bx8071514900ks-desktop-processor/processor?page=3",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/intel/bx8071514900ks/bx8071514900ks-image_main.jpg",
+    "original_price": "₹90,200",
+    "discounted_price": "₹43,760",
+    "discount": "-51%"
+  },
+  {
+    "name": "AMD Ryzen 7 9800X3D Processor with Radeon Graphics",
+    "url": "https://mdcomputers.in/product/amd-ryzen-7-9800x3d-100-1000001084wof-desktop-processor/processor?page=3",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/amd/ryzen-7-9800x3d/ryzen-7-9800x3d-image-main.jpg",
+    "original_price": "₹72,000",
+    "discounted_price": "₹46,400",
+    "discount": "-36%"
+  },
+  {
+    "name": "Intel Core i9-14900K Processor",
+    "url": "https://mdcomputers.in/product/intel-i9-14900k-bx8071514900k-desktop-processor/processor?page=3",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/intel/i9-14900k/i9-14900k-image-main.jpg",
+    "original_price": "₹51,000",
+    "discounted_price": "₹46,900",
+    "discount": "-8%"
+  },
+  {
+    "name": "AMD Ryzen 9 9950X Processor with Radeon Graphics",
+    "url": "https://mdcomputers.in/product/amd-ryzen-9-9950x-100-100001277wof-desktop-processor/processor?page=3",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/amd/100-100001277wof/100-100001277wof-image-main.jpg",
+    "original_price": "₹100,600",
+    "discounted_price": "₹56,300",
+    "discount": "-44%"
+  },
+  {
+    "name": "AMD Ryzen 9 9900X3D Processor",
+    "url": "https://mdcomputers.in/product/amd-ryzen-9-9900x3d-100-100001368wof-desktop-processor/processor?page=3",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/amd/ryzen-9-9900x3d/ryzen-9-9900x3d-image.webp",
+    "original_price": "₹102,000",
+    "discounted_price": "₹57,750",
+    "discount": "-43%"
+  },
+  {
+    "name": "Intel Core Ultra 9 285K Processor",
+    "url": "https://mdcomputers.in/product/intel-ultra-9-285k-bx80768285k-desktop-processor/processor?page=3",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/intel/ultra-9-285k/ultra-9-285k-image-main.jpg",
+    "original_price": "₹82,350",
+    "discounted_price": "₹58,280",
+    "discount": "-29%"
+  },
+  {
+    "name": "AMD Ryzen 9 9950X3D Processor",
+    "url": "https://mdcomputers.in/product/amd-ryzen-9-9950x3d-100-100000719wof-desktop-processor/processor?page=3",
+    "image_url": "https://mdcomputers.in/cdn-cgi/image/width=500,height=500,quality=75/image/catalog/processor/amd/ryzen-9-9950x3d/ryzen-9-9950x3d-image.webp",
+    "original_price": "₹119,000",
+    "discounted_price": "₹69,890",
+    "discount": "-41%"
+  }
+]
