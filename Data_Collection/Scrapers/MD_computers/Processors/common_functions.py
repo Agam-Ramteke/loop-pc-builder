@@ -56,3 +56,7 @@ def save_to_mongo(data, conn_string, db_name, collection_name):
     db = client[db_name]
     collection = db[collection_name]
     collection.insert_one(data)
+
+def delete_redundant_products(Image_Dir):
+    """delete redundant product images"""
+    for products in os.listdir(Image_dir):

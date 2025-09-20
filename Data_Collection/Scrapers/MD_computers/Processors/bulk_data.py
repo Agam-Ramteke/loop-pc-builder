@@ -40,7 +40,7 @@ def parse_snapshot(filepath):
             if image_url and image_url.startswith("/"):
                 image_url = "https://mdcomputers.in" + image_url
 
-        # --- Prices ---
+        # --- Prices ---uuu
         price_del = product.select_one("span.price span.del")
         price_ins = product.select_one("span.price span.ins")
         original_price = price_del.get_text(strip=True) if price_del else None
@@ -78,18 +78,18 @@ if __name__ == "__main__":
         processors = parse_snapshot(html_file)
 
         if not processors:
-            print(f"❌ No products on page {page}, stopping.")
+            print(f"No products on page {page}, stopping.")
             break
 
-        print(f"✅ Page {page}: Found {len(processors)} products")
+        print(f"Page {page}: Found {len(processors)} products")
         all_processors.extend(processors)
 
         # Clean up snapshot right after parsing
         try:
             os.remove(html_file)
-            print(f"🗑️ Deleted snapshot: {html_file}")
+            print(f"Deleted snapshot: {html_file}")
         except Exception as e:
-            print(f"⚠️ Failed to delete snapshot {html_file}: {e}")
+            print(f"Failed to delete snapshot {html_file}: {e}")
 
         page += 1
 
