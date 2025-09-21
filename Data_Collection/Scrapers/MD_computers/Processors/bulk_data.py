@@ -1,8 +1,9 @@
-import os
 from bs4 import BeautifulSoup
 import sys
 import os
 import common_functions as cf
+from fake_useragent import UserAgent
+import time
 # --- SETTINGS ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SNAPSHOT_DIR = os.path.join(BASE_DIR, "snapshots")
@@ -36,7 +37,20 @@ def parse_snapshot(filepath):
         img_el = product.select_one("img")
         image_url = None
         if img_el:
-            image_url = img_el.get("src") or img_el.get("data-src") or img_el.get("data-lazy-src")
+            image_url = (
+                    img_el.get("src")
+                    or img_el.get("data-src")
+                    or img_el.get("data-lazy-src")
+                    or img_el.get("data-cfsrc")  # <-- Cloudflare lazy loading
+            )
+
+            # Fallback: check <noscript><img src="..."></noscript>
+            if not image_url:
+                noscript_img = product.select_one("noscript img")
+                if noscript_img and noscript_img.get("src"):
+                    image_url = noscript_img["src"]
+
+            # Add domain if it's a relative path
             if image_url and image_url.startswith("/"):
                 image_url = "https://mdcomputers.in" + image_url
 
@@ -92,6 +106,7 @@ if __name__ == "__main__":
             print(f"Failed to delete snapshot {html_file}: {e}")
 
         page += 1
+        time.sleep(1)
 
     # Save combined JSON (all processors from all pages)
     cf.save_json(all_processors, DATA_DIR, prefix="processors")

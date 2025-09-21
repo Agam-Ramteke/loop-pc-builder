@@ -66,7 +66,7 @@ def content_hash(content):
     h.update(content)
     return h.hexdigest()
 
-def download_image(image_url, product_url, folder, seen_hashes=set()):
+def download_image(image_url, product_url, folder, collection=None, db_filter=None, seen_hashes=set()):
     os.makedirs(folder, exist_ok=True)
     slug = slugify(product_url)
     ext = os.path.splitext(image_url.split("?")[0])[1] or ".jpg"
@@ -83,6 +83,13 @@ def download_image(image_url, product_url, folder, seen_hashes=set()):
                 print(f"Duplicate detected: {image_url}")
                 return seen_hashes[h]
             else:
+                # Check in DB before saving
+                if collection is not None and db_filter:
+                    existing = collection.find_one(db_filter)
+                    if existing and existing.get("image_path"):
+                        # Image already exists in DB
+                        return existing["image_path"]
+
                 with open(filepath, "wb") as f:
                     f.write(img_bytes)
                 seen_hashes.add(h)
@@ -90,3 +97,22 @@ def download_image(image_url, product_url, folder, seen_hashes=set()):
             return None
     return filepath
 
+def upsert_product(data, conn_string, db_name, collection_name, unique_keys=("url",)):
+    """
+    Inserts or updates a product in MongoDB based on unique keys.
+
+    Parameters:
+    - data: dict of product
+    - unique_keys: tuple of field names used to identify duplicates (default: "url")
+    """
+    client = MongoClient(conn_string)
+    db = client[db_name]
+    collection = db[collection_name]
+
+    # Build query based on the unique keys that exist in data
+    query = {k: data[k] for k in unique_keys if k in data}
+    if not query:
+        raise ValueError(f"None of the unique keys {unique_keys} found in data")
+
+    # Upsert: update if exists, insert if not
+    collection.update_one(query, {"$set": data}, upsert=True)
