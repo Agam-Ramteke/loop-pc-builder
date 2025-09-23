@@ -6,7 +6,6 @@ from fake_useragent import UserAgent
 import json
 from pymongo import MongoClient
 import hashlib
-import shutil
 
 
 def slugify(url: str) -> str:
