@@ -103,9 +103,11 @@ if __name__ == "__main__":
         page = 1
 
         while True:
-            page_url = link  if page == 1 else f"{link}?page={page}"
-            html_file = cf.save_snapshot(page_url,SNAPSHOT_DIR,"MD Computers",page = page)
-            all_items = parse_snapshot(html_file)
+            page_url = link if page == 1 else f"{link}?page={page}"
+            html_file = cf.save_snapshot(page_url, SNAPSHOT_DIR, "MD Computers", page=page)
+
+            page_items = parse_snapshot(html_file)
+            all_items.extend(page_items)
             has_next = cf.next_page(html_file)
 
             try:
@@ -114,13 +116,18 @@ if __name__ == "__main__":
             except Exception as e:
                 print(f"Failed to delete snapshot for {item_name} page {page}: {e}")
 
-            if not all_items:
-                print(f"No  Products on page {page}")
+            if not page_items:
+                print(f"No products on page {page}")
 
             if not has_next:
                 print(f"No more pages found after page {page}\n")
                 break
+
             page += 1
             time.sleep(0.15)
-        cf.save_json(all_items, DATA_DIR,prefix= item_name)
 
+        if all_items:
+            cf.save_json(all_items, DATA_DIR, prefix=item_name)
+            print(f"✅ Saved {len(all_items)} items for {item_name}")
+        else:
+            print(f"⚠️ No items found for {item_name}, skipping save.")

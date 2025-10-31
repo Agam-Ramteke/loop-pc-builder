@@ -6,7 +6,7 @@ from fake_useragent import UserAgent
 import json
 from pymongo import MongoClient
 import hashlib
-
+from bs4 import BeautifulSoup
 
 def slugify(url: str) -> str:
     return url.replace("https://", "").replace("http://", "").replace("/", "_").replace("?", "_").replace("&", "_")
@@ -115,3 +115,23 @@ def upsert_product(data, conn_string, db_name, collection_name, unique_keys=("ur
 
     # Upsert: update if exists, insert if not
     collection.update_one(query, {"$set": data}, upsert=True)
+
+def next_page(filepath):
+    with open(filepath, "r", encoding="utf-8") as f:
+        soup = BeautifulSoup(f, "html.parser")
+    next_link = soup.find("link", rel="next")
+    return bool(next_link)
+
+
+def delete_non_internal():
+    from pymongo import MongoClient
+
+    client = MongoClient("localhost:27017")
+    db = client["PC_Parts"]
+    collection = db["Storage"]
+
+    result = collection.delete_many({
+        "specifications.Category": {"$not": {"$regex": "internal", "$options": "i"}}
+    })
+
+    print(f"Deleted {result.deleted_count} non-internal SSD entries.")
