@@ -1,4 +1,3 @@
-import os
 import json
 import glob
 import datetime
@@ -7,6 +6,11 @@ from unicodedata import category
 import threading
 import queue
 import sys
+import time
+import random
+import urllib.request
+import traceback
+import os
 
 import common_functions as cf
 from pymongo import MongoClient
@@ -24,7 +28,8 @@ os.makedirs(IMAGE_DIR, exist_ok=True)
 # MongoDB settings
 DB_NAME = "PC_Parts"
 COLLECTION_NAME = None
-CONNECTION_STRING = "localhost:27017"
+CONNECTION_STRING = "mongodb://localhost:27017/"
+
 
 
 def parse_product_page(html_file_path, product_url=None, image_url=None, collection=None):
@@ -171,28 +176,49 @@ if __name__ == "__main__":
             product_data = parse_product_page(html_file,product_url = url, image_url = image_url,collection = collection)
 
             if collection_name.lower() == "storage":
-                category = product_data.get("specifications",{}).get("category","").lower()
-                if "internal" not in category:
+                specs_text = " ".join([f"{k} {v}".lower() for k, v in product_data.get("specifications", {}).items()])
+                if "internal" not in specs_text:
                     print(f"Skipping Non-Internal Storage : {product_data['name']}")
                     continue
 
-            cf.upsert_product(product_data,CONNECTION_STRING,DB_NAME,collection_name)
+            result = cf.upsert_product(product_data, CONNECTION_STRING, DB_NAME, collection_name)
+
+            # Only delete snapshot if we actually processed it (inserted or updated)
+            if result in ("inserted", "updated"):
+                print(f"Saved: {product_data['name']}")
+                time.sleep(random.uniform(2, 3))
+
+                try:
+                    os.remove(html_file)
+                    print(f"Deleted snapshot: {html_file}\n")
+                except Exception as e:
+                    print(f"Failed to delete snapshot {html_file}: {e}\n")
+            elif result == "skipped":
+                print(f"Skipped (already fresh): {product_data['name']}")
+                # Delete snapshot immediately since we didn't process it
+                try:
+                    os.remove(html_file)
+                    print(f"Deleted snapshot: {html_file}\n")
+                except Exception as e:
+                    print(f"Failed to delete snapshot {html_file}: {e}\n")
+
 
             print(f"Saved : {product_data['name']}")
+            time.sleep(random.uniform(2,3))
 
 
-            # Cleanup snapshot
+            # Cleanup snapshot only if not skipped
             try:
                 os.remove(html_file)
-                print(f"🧹 Deleted snapshot: {html_file}\n")
+                print(f"Deleted snapshot: {html_file}\n")
             except Exception as e:
-                print(f"⚠️ Failed to delete snapshot {html_file}: {e}\n")
+                print(f"Failed to delete snapshot {html_file}: {e}\n")
 
             # --- Cleanup obsolete images for this category ---
         for img_file in os.listdir(IMAGE_DIR):
             img_path = os.path.join(IMAGE_DIR, img_file)
             if not collection.find_one({"image_path": img_path}):
                 os.remove(img_path)
-                print(f"🗑️ Deleted obsolete image: {img_path}")
+                print(f"Deleted obsolete image: {img_path}")
 
         print("\n🎉 All selected component data processed successfully!")

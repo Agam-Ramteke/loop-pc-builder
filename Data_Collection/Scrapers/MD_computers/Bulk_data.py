@@ -21,7 +21,8 @@ URL = [
     "https://mdcomputers.in/catalog/ram",
     "https://mdcomputers.in/catalog/storage",
     "https://mdcomputers.in/catalog/smps",
-    "https://mdcomputers.in/catalog/cabinet"]
+    "https://mdcomputers.in/catalog/cabinet",
+    "https://mdcomputers.in/catalog/cpu-cooler"]
 
 # Ensure directories exist
 os.makedirs(SNAPSHOT_DIR, exist_ok=True)
@@ -73,6 +74,7 @@ def parse_snapshot(filepath):
             "name": name,
             "url": url,
             "image_url": image_url,
+            "Scraped_at" : datetime.now().isoformat(),
             "price": {
                 "original": original_price,
                 "discounted": discounted_price,
