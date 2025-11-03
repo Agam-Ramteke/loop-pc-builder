@@ -166,6 +166,7 @@ if __name__ == "__main__":
         for item in products:
             url = item["url"]
             image_url = item.get("image_url")
+            scraped_at = item.get("Scraped_at")
             if not url:
                 continue
 
@@ -184,7 +185,7 @@ if __name__ == "__main__":
             result = cf.upsert_product(product_data, CONNECTION_STRING, DB_NAME, collection_name)
 
             # Only delete snapshot if we actually processed it (inserted or updated)
-            if result in ("inserted", "updated"):
+            if result == "inserted":
                 print(f"Saved: {product_data['name']}")
                 time.sleep(random.uniform(2, 3))
 
@@ -194,7 +195,6 @@ if __name__ == "__main__":
                 except Exception as e:
                     print(f"Failed to delete snapshot {html_file}: {e}\n")
             elif result == "skipped":
-                print(f"Skipped (already fresh): {product_data['name']}")
                 # Delete snapshot immediately since we didn't process it
                 try:
                     os.remove(html_file)
