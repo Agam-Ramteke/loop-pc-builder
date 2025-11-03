@@ -8,12 +8,12 @@ import common_functions as cf
 from pathlib import Path
 from urllib.parse import urlparse
 from datetime import datetime
+import random
 
 # Settings
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SNAPSHOT_DIR = os.path.join(BASE_DIR, "snapshots")
 DATA_DIR = os.path.join(BASE_DIR, "DATA_DIR")
-
 
 URL = [
     "https://mdcomputers.in/catalog/processor",
@@ -22,11 +22,13 @@ URL = [
     "https://mdcomputers.in/catalog/storage",
     "https://mdcomputers.in/catalog/smps",
     "https://mdcomputers.in/catalog/cabinet",
-    "https://mdcomputers.in/catalog/cpu-cooler"]
+    "https://mdcomputers.in/catalog/cpu-cooler"
+]
 
 # Ensure directories exist
 os.makedirs(SNAPSHOT_DIR, exist_ok=True)
 os.makedirs(DATA_DIR, exist_ok=True)
+
 
 def parse_snapshot(filepath):
     with open(filepath, "rb") as f:
@@ -36,7 +38,7 @@ def parse_snapshot(filepath):
     product_blocks = soup.select("div.product-grid-item")
     if not product_blocks:
         return []
-    
+
     for product in product_blocks:
         # --- Name and URL ---
         name_el = product.select_one("h3.product-entities-title a")
@@ -48,10 +50,10 @@ def parse_snapshot(filepath):
         image_url = None
         if image_el:
             image_url = (
-                image_el.get("src")
-                or image_el.get("data-src")
-                or image_el.get("data-lazy-src")
-                or image_el.get("data-cfsrc")  # Cloudflare Lazy Loading
+                    image_el.get("src")
+                    or image_el.get("data-src")
+                    or image_el.get("data-lazy-src")
+                    or image_el.get("data-cfsrc")  # Cloudflare Lazy Loading
             )
             # Fallback: check <noscript><img src="..."></noscript>
             if not image_url:
@@ -69,36 +71,46 @@ def parse_snapshot(filepath):
         original_price = price_del.get_text(strip=True) if price_del else None
         discounted_price = price_ins.get_text(strip=True) if price_ins else None
 
-        #-- Append item data --
+        # -- Append item data --
         items.append({
             "name": name,
             "url": url,
             "image_url": image_url,
-            "Scraped_at" : datetime.now().isoformat(),
+            "Scraped_at": datetime.now().isoformat(),
             "price": {
                 "original": original_price,
                 "discounted": discounted_price,
                 "discount": None
             },
             "stock_status": None,
-            "specifications": {},  # Leave empty for now
+            "specifications": {},
             "source": "MD Computers"
         })
 
     return items
 
+
 if __name__ == "__main__":
+    today = datetime.now().strftime("%Y-%m-%d")
+
+    # --- NEW: Collect all existing JSON files for today's date ---
+    existing_files = {
+        f.split("_")[0]: f
+        for f in os.listdir(DATA_DIR)
+        if f.endswith(".json") and today in f
+    }
+
+    print(f"Found {len(existing_files)} files from today: {list(existing_files.keys())}")
+
     for link in URL:
         path = urlparse(link).path
         item_name = Path(path).name
-        print("\n" + "=" * 60 + "\n")
-        print(f"Processing snapshots for: {item_name.upper()}")
 
-        today = datetime.now().strftime("%Y-%m-%d")
-        filename = f"{item_name}_{today}.json"
-        filepath = os.path.join(DATA_DIR, filename)
-        if os.path.exists(filepath):
-            print(f"✔ Entry for {item_name} already exists — skipping scrape.\n")
+        print(f"\n{30*'-'}\nProcessing: {item_name.upper()}")
+
+        # --- Skip if today's file already exists ---
+        if item_name in existing_files:
+            print(f"✔ File for {item_name} already exists for {today} — skipping scrape.\n")
             continue
 
         all_items = []
@@ -114,7 +126,7 @@ if __name__ == "__main__":
 
             try:
                 os.remove(html_file)
-                print(f"Processed snapshot for {item_name} page {page}")
+                #print(f"Processed snapshot for {item_name} page {page}")
             except Exception as e:
                 print(f"Failed to delete snapshot for {item_name} page {page}: {e}")
 
@@ -122,7 +134,8 @@ if __name__ == "__main__":
                 print(f"No products on page {page}")
 
             if not has_next:
-                print(f"No more pages found after page {page}\n")
+                #print(f"No more pages found after page {page}\n")
+                print(f"{page} Pages Processed")
                 break
 
             page += 1
@@ -130,6 +143,7 @@ if __name__ == "__main__":
 
         if all_items:
             cf.save_json(all_items, DATA_DIR, prefix=item_name)
-            print(f"✅ Saved {len(all_items)} items for {item_name}")
+            print(f"✅ Saved {len(all_items)} items for {item_name}\n {30*'-'}\n")
         else:
-            print(f"⚠️ No items found for {item_name}, skipping save.")
+            print(f"\n⚠️ No items found for {item_name}, skipping save.")
+        time.sleep(random.uniform(1,3))
