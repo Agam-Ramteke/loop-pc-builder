@@ -8,26 +8,12 @@ import hashlib
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 import time
+import aiohttp
+import asyncio
 
 def slugify(url: str) -> str:
     return url.replace("https://", "").replace("http://", "").replace("/", "_").replace("?", "_").replace("&", "_")
 
-def save_snapshot(url, folder, prefix="", page=None):
-    """Generic snapshot saver"""
-    os.makedirs(folder, exist_ok=True)
-    today = datetime.now().strftime("%Y-%m-%d")
-    extra = f"_p{page}" if page else ""
-    slug = slugify(url)
-    filename = f"{prefix}_{today}{extra}_{slug}.html"
-    filepath = os.path.join(folder, filename)
-
-    response = requests.get(url, headers={"User-Agent": UserAgent().random})
-    response.raise_for_status()
-
-    with open(filepath, "w", encoding="utf-8") as f:
-        f.write(response.text)
-
-    return filepath
 
 def save_json(data, folder, prefix="data"):
     #--Cleanup Files older than 2 weeks(14 days)--
@@ -38,6 +24,7 @@ def save_json(data, folder, prefix="data"):
                 date_str =filename[len(prefix)+1:-5]
                 file_date = datetime.strptime(date_str,"%Y-%m-%d").date()
                 if (today - file_date).days > 2: #change this every run Q_Q . cause idk me kyu ye likh testing ke phase me
+                    print(f"Deleting Older File : : {filename}")
                     os.remove(os.path.join(folder, filename))
             except Exception as e:
                 print(f"Error processing file {filename}: {e}")
@@ -95,6 +82,38 @@ def download_image(image_url, product_url, folder, collection=None, db_filter=No
                 seen_hashes.add(h)
         except Exception:
             return None
+    return filepath
+
+import os
+import aiohttp
+import aiofiles
+from datetime import datetime
+from fake_useragent import UserAgent
+
+def slugify(url: str) -> str:
+    return (
+        url.replace("https://", "")
+        .replace("http://", "")
+        .replace("/", "_")
+        .replace("?", "_")
+        .replace("&", "_")
+    )
+
+def save_snapshot(url, folder, prefix="", page=None):
+    """Generic snapshot saver"""
+    os.makedirs(folder, exist_ok=True)
+    today = datetime.now().strftime("%Y-%m-%d")
+    extra = f"_p{page}" if page else ""
+    slug = slugify(url)
+    filename = f"{prefix}_{today}{extra}_{slug}.html"
+    filepath = os.path.join(folder, filename)
+
+    response = requests.get(url, headers={"User-Agent": UserAgent().random})
+    response.raise_for_status()
+
+    with open(filepath, "w", encoding="utf-8") as f:
+        f.write(response.text)
+
     return filepath
 
 

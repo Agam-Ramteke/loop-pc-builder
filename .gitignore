@@ -1,0 +1,23 @@
+# Ignore all image files
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+*.tiff
+*.svg
+*.webp
+*.ico
+
+# Ignore all HTML files
+*.html
+*.htm
+
+# Ignore all folders and their contents
+*/snapshots
+*/product_images
+*/individual_snapshots
+
+
+!.gitignore
+!README.md
