@@ -13,7 +13,7 @@ import random
 # Settings
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SNAPSHOT_DIR = os.path.join(BASE_DIR, "snapshots")
-DATA_DIR = os.path.join(BASE_DIR, "DATA_DIR")
+DATA_DIR = os.path.join(BASE_DIR, "data")
 
 URL = [
     "https://mdcomputers.in/catalog/processor",
@@ -76,7 +76,7 @@ def parse_snapshot(filepath):
             "name": name,
             "url": url,
             "image_url": image_url,
-            "Scraped_at": datetime.now().isoformat(),
+            "scraped_at": datetime.now().isoformat(),
             "price": {
                 "original": original_price,
                 "discounted": discounted_price,
@@ -93,9 +93,9 @@ def parse_snapshot(filepath):
 if __name__ == "__main__":
     today = datetime.now().strftime("%Y-%m-%d")
 
-    # --- NEW: Collect all existing JSON files for today's date ---
+    #Collect all existing JSON files for today's date ---
     existing_files = {
-        f.split("_")[0]: f
+        "_".join(f.split("_")[:-1]): f
         for f in os.listdir(DATA_DIR)
         if f.endswith(".json") and today in f
     }

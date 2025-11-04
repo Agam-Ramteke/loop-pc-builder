@@ -2,17 +2,11 @@ import json
 import glob
 import datetime
 from bs4 import BeautifulSoup
-from unicodedata import category
 import threading
 import queue
-import sys
 import time
 import random
-import urllib.request
-import traceback
 import os
-import asyncio
-
 import common_functions as cf
 from pymongo import MongoClient
 
@@ -20,9 +14,9 @@ from pymongo import MongoClient
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SNAPSHOT_DIR = os.path.join(BASE_DIR, "individual_snapshots")
 IMAGE_DIR = os.path.join(BASE_DIR, "product_images")
-DATA_DIR = os.path.join(BASE_DIR, "DATA_DIR")
+DATA_DIR = os.path.join(BASE_DIR, "data")
 
-
+#Make Directories if not available
 os.makedirs(SNAPSHOT_DIR, exist_ok=True)
 os.makedirs(IMAGE_DIR, exist_ok=True)
 
@@ -83,7 +77,7 @@ def parse_product_page(html_file_path, product_url=None, image_url=None, collect
         "stock_status": stock_status,
         "specifications": specifications,
         "source": "MD Computers",
-        "scraped_at": datetime.datetime.utcnow().isoformat()
+        "scraped_at": datetime.datetime.now(datetime.timezone.utc).isoformat()
     }
 
     return product_data
@@ -112,7 +106,7 @@ def input_with_timeout(prompt, timeout=10):
         user_input = q.get(timeout=timeout)
         return user_input
     except queue.Empty:
-        print("\n⏰ Timeout reached. Automatically selecting ALL categories.")
+        print("\nAutomatically selecting ALL categories.")
         return ""
 
 if __name__ == "__main__":
@@ -133,6 +127,7 @@ if __name__ == "__main__":
     choice = input_with_timeout("\n Enter the number of files to process", timeout=10).strip()
 
     files_to_process = []
+
     if choice and choice.isdigit() and 1 <= int(choice) <= len(all_json_files):
         files_to_process = [sorted(all_json_files)[int(choice)-1]]
     else:
@@ -149,12 +144,12 @@ if __name__ == "__main__":
             "processor": "Processors",
             "ram": "RAM",
             "motherboard": "Motherboards",
-            "smps": "smps",
+            "smps": "SMPS",
             "storage": "Storage",
             "cabinet": "Cabinets"
         }
 
-        collection_name = mapping.get(base_name, base_name.capitalize())
+        collection_name = mapping.get(base_name, base_name.replace("-", " ").title().replace(" ", ""))
         collection = db[collection_name]
 
         print(f"Target MongoDB collection : {collection_name}")
@@ -162,64 +157,61 @@ if __name__ == "__main__":
         with open(raw_data_file,"r",encoding="utf-8") as f:
             products = json.load(f)
 
-
-        #---Process Each element---
+        # --- Process each element ---
         for item in products:
             url = item["url"]
             image_url = item.get("image_url")
-            scraped_at = item.get("Scraped_at")
             if not url:
                 continue
 
-            # Save Snapshot
-            html_file = cf.save_snapshot(url,SNAPSHOT_DIR,prefix="mdcomputers")
+            html_file = cf.save_snapshot(url, SNAPSHOT_DIR, prefix="mdcomputers")
 
-            #Parse And Save
-            product_data = parse_product_page(html_file,product_url = url, image_url = image_url,collection = collection)
-
-            if collection_name.lower() == "storage":
-                specs_text = " ".join([f"{k} {v}".lower() for k, v in product_data.get("specifications", {}).items()])
-                if "internal" not in specs_text:
-                    print(f"Skipping Non-Internal Storage : {product_data['name']}")
-                    continue
-
-            result = cf.upsert_product(product_data, CONNECTION_STRING, DB_NAME, collection_name)
-
-            # Only delete snapshot if we actually processed it (inserted or updated)
-            if result == "inserted":
-                print(f"Saved: {product_data['name']}")
-                time.sleep(random.uniform(2, 3))
-
-                try:
-                    os.remove(html_file)
-                    print(f"Deleted snapshot: {html_file}\n")
-                except Exception as e:
-                    print(f"Failed to delete snapshot {html_file}: {e}\n")
-            elif result == "skipped":
-                # Delete snapshot immediately since we didn't process it
-                try:
-                    os.remove(html_file)
-                    print(f"Deleted snapshot: {html_file}\n")
-                except Exception as e:
-                    print(f"Failed to delete snapshot {html_file}: {e}\n")
-
-
-            print(f"Saved : {product_data['name']}")
-            time.sleep(random.uniform(2,3))
-
-
-            # Cleanup snapshot only if not skipped
             try:
-                os.remove(html_file)
-                print(f"Deleted snapshot: {html_file}\n")
-            except Exception as e:
-                print(f"Failed to delete snapshot {html_file}: {e}\n")
+                # Parse and build product data
+                product_data = parse_product_page(html_file, product_url=url, image_url=image_url,
+                                                  collection=collection)
 
-            # --- Cleanup obsolete images for this category ---
-        for img_file in os.listdir(IMAGE_DIR):
-            img_path = os.path.join(IMAGE_DIR, img_file)
-            if not collection.find_one({"image_path": img_path}):
-                os.remove(img_path)
-                print(f"Deleted obsolete image: {img_path}")
+                # Skip non-internal storage
+                if collection_name.lower() == "storage":
+                    specs_text = " ".join(
+                        [f"{k} {v}".lower() for k, v in product_data.get("specifications", {}).items()])
+                    if "internal" not in specs_text:
+                        print(f"Skipping Non-Internal Storage : {product_data['name']}")
+                        continue
+
+                # Save / Update in DB
+                result = cf.upsert_product(product_data, CONNECTION_STRING, DB_NAME, collection_name,verbose = False)
+
+                time.sleep(random.uniform(3, 5))
+
+            finally:
+                # Cleanup snapshot only once per loop
+                if os.path.exists(html_file):
+                    try:
+                        os.remove(html_file)
+                        print(f"Deleted snapshot: {html_file}\n")
+                    except Exception as e:
+                        print(f"Failed to delete snapshot {html_file}: {e}\n")
 
         print("\n🎉 All selected component data processed successfully!")
+
+        # --- Cleanup obsolete images (run once after everything) ---
+        print("\n🧹 Cleaning up unused images...")
+        for img_file in os.listdir(IMAGE_DIR):
+            img_path = os.path.join(IMAGE_DIR, img_file)
+
+            # Check all collections in the database for references
+            in_use = False
+            for cname in db.list_collection_names():
+                if db[cname].find_one({"image_path": img_path}):
+                    in_use = True
+                    break
+
+            if not in_use:
+                try:
+                    os.remove(img_path)
+                    print(f"Deleted obsolete image: {img_path}")
+                except Exception as e:
+                    print(f"Failed to delete {img_path}: {e}")
+
+        print("\nImage cleanup complete.")

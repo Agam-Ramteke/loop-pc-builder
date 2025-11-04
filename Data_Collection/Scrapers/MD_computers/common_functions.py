@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 import time
 import aiohttp
 import asyncio
+from datetime import timezone
 
 def slugify(url: str) -> str:
     return url.replace("https://", "").replace("http://", "").replace("/", "_").replace("?", "_").replace("&", "_")
@@ -17,11 +18,11 @@ def slugify(url: str) -> str:
 
 def save_json(data, folder, prefix="data"):
     #--Cleanup Files older than 2 weeks(14 days)--
-    today = datetime.now().date()
+    today = datetime.now(timezone.utc).date()
     for filename in os.listdir(folder):
         if filename.endswith(".json") and filename.startswith(prefix):
             try:
-                date_str =filename[len(prefix)+1:-5]
+                date_str = filename.rsplit("_", 1)[-1].replace(".json", "")
                 file_date = datetime.strptime(date_str,"%Y-%m-%d").date()
                 if (today - file_date).days > 2: #change this every run Q_Q . cause idk me kyu ye likh testing ke phase me
                     print(f"Deleting Older File : : {filename}")
@@ -33,7 +34,7 @@ def save_json(data, folder, prefix="data"):
     #--Save new file--    
     
     os.makedirs(folder, exist_ok=True)
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     filepath = os.path.join(folder, f"{prefix}_{today}.json")
 
     with open(filepath, "w", encoding="utf-8") as f:
@@ -50,10 +51,14 @@ def save_to_mongo(data, conn_string, db_name, collection_name):
 
 def content_hash(content):
     h = hashlib.md5()
+    if isinstance(content, str):
+        content = content.encode('utf-8')
     h.update(content)
     return h.hexdigest()
 
 def download_image(image_url, product_url, folder, collection=None, db_filter=None, seen_hashes=set()):
+    if seen_hashes is None:
+        seen_hashes = set()
     os.makedirs(folder, exist_ok=True)
     slug = slugify(product_url)
     ext = os.path.splitext(image_url.split("?")[0])[1] or ".jpg"
@@ -84,25 +89,10 @@ def download_image(image_url, product_url, folder, collection=None, db_filter=No
             return None
     return filepath
 
-import os
-import aiohttp
-import aiofiles
-from datetime import datetime
-from fake_useragent import UserAgent
-
-def slugify(url: str) -> str:
-    return (
-        url.replace("https://", "")
-        .replace("http://", "")
-        .replace("/", "_")
-        .replace("?", "_")
-        .replace("&", "_")
-    )
-
 def save_snapshot(url, folder, prefix="", page=None):
     """Generic snapshot saver"""
     os.makedirs(folder, exist_ok=True)
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     extra = f"_p{page}" if page else ""
     slug = slugify(url)
     filename = f"{prefix}_{today}{extra}_{slug}.html"
@@ -117,7 +107,7 @@ def save_snapshot(url, folder, prefix="", page=None):
     return filepath
 
 
-def upsert_product(data, conn_string, db_name, collection_name, unique_keys=("url",)):
+def upsert_product(data, conn_string, db_name, collection_name, unique_keys=("url",),verbose = True):
     """
     Inserts or updates a product in MongoDB based on unique keys.
     Updates only if the existing record is older than 2 days.
@@ -127,6 +117,9 @@ def upsert_product(data, conn_string, db_name, collection_name, unique_keys=("ur
         "updated" - existing document updated
         "skipped" - document exists and is fresh (< 2 days old)
     """
+
+    if verbose:
+        print(f"Inserted new: {data.get('name', 'Unknown product')}")
 
     client = MongoClient(conn_string)
     db = client[db_name]
@@ -145,7 +138,7 @@ def upsert_product(data, conn_string, db_name, collection_name, unique_keys=("ur
         if scraped_at_str:
             try:
                 scraped_at = datetime.fromisoformat(scraped_at_str)
-                age = datetime.utcnow() - scraped_at
+                age = datetime.now(timezone.utc) - scraped_at
 
                 # Skip if not older than 2 days
                 if age < timedelta(days=2):
