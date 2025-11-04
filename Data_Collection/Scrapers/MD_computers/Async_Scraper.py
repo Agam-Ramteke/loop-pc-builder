@@ -9,7 +9,6 @@ from pathlib import Path
 from pymongo import MongoClient
 
 import common_functions as cf
-from Individual_Data import parse_product_page, input_with_timeout  # reuse existing functions
 
 # --- SETTINGS ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -39,7 +38,7 @@ async def process_product_async(loop, semaphore, collection_name, product_item):
         try:
             # Parse in executor (BeautifulSoup is blocking)
             product_data = await loop.run_in_executor(
-                None, parse_product_page,
+                None, cf.parse_product_page,
                 product_item["snapshot_path"], url, image_url, None
             )
 
@@ -86,7 +85,7 @@ async def main():
     for i, file in enumerate(all_json_files, 1):
         print(f"{i}. {os.path.basename(file)}")
 
-    choice = input_with_timeout(
+    choice = cf.input_with_timeout(
         "\nEnter the number of the file to process (blank = ALL)",
         timeout=10
     ).strip()
@@ -109,6 +108,7 @@ async def main():
         "cabinet": "Cabinets",
         "cpu-cooler": "CpuCoolers"
     }
+
 
     try:
         for file_path in files_to_process:
