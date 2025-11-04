@@ -1,21 +1,22 @@
-import time
-import requests
-from bs4 import BeautifulSoup
-from fake_useragent import UserAgent
 import os
 import json
-import common_functions as cf
-from pathlib import Path
+import asyncio
+import aiohttp
+from bs4 import BeautifulSoup
+from fake_useragent import UserAgent
 from urllib.parse import urlparse
 from datetime import datetime
-import random
+from pathlib import Path
+from rich.table import Table
+from rich.console import Console
+from rich.theme import Theme
+import common_functions as cf
 
-# Settings
+# --- SETTINGS ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-SNAPSHOT_DIR = os.path.join(BASE_DIR, "snapshots")
 DATA_DIR = os.path.join(BASE_DIR, "data")
 
-URL = [
+URLS = [
     "https://mdcomputers.in/catalog/processor",
     "https://mdcomputers.in/catalog/graphics-card",
     "https://mdcomputers.in/catalog/ram",
@@ -25,61 +26,47 @@ URL = [
     "https://mdcomputers.in/catalog/cpu-cooler"
 ]
 
-# Ensure directories exist
-os.makedirs(SNAPSHOT_DIR, exist_ok=True)
+HEADERS = {"User-Agent": UserAgent().random}
 os.makedirs(DATA_DIR, exist_ok=True)
 
+# --- Console Setup ---
+console = Console(theme=Theme({"repr.str": "none"}), color_system="auto", force_terminal=False)
+SUPPORTS_COLOR = console.is_terminal
 
-def parse_snapshot(filepath):
-    with open(filepath, "rb") as f:
-        soup = BeautifulSoup(f, "html.parser")
 
+# -------------------------- PARSER --------------------------
+def parse_snapshot(html_content):
+    """Extract product data from an HTML page."""
+    soup = BeautifulSoup(html_content, "html.parser")
     items = []
-    product_blocks = soup.select("div.product-grid-item")
-    if not product_blocks:
-        return []
 
-    for product in product_blocks:
-        # --- Name and URL ---
+    for product in soup.select("div.product-grid-item"):
         name_el = product.select_one("h3.product-entities-title a")
         name = name_el.get_text(strip=True) if name_el else None
         url = name_el["href"].strip() if name_el and name_el.has_attr("href") else None
 
-        # --- Image ---
         image_el = product.select_one("img")
-        image_url = None
-        if image_el:
-            image_url = (
-                    image_el.get("src")
-                    or image_el.get("data-src")
-                    or image_el.get("data-lazy-src")
-                    or image_el.get("data-cfsrc")  # Cloudflare Lazy Loading
-            )
-            # Fallback: check <noscript><img src="..."></noscript>
-            if not image_url:
-                noscript_img = product.select_one("noscript img")
-                if noscript_img and noscript_img.get("src"):
-                    image_url = noscript_img["src"]
+        image_url = (
+            image_el.get("src")
+            or image_el.get("data-src")
+            or image_el.get("data-lazy-src")
+            or image_el.get("data-cfsrc")
+            if image_el else None
+        )
+        if image_url and image_url.startswith("/"):
+            image_url = "https://mdcomputers.in" + image_url
 
-            # Add domain if it's a relative path
-            if image_url and image_url.startswith("/"):
-                image_url = "https://mdcomputers.in" + image_url
-
-        # --- Prices ---
         price_del = product.select_one("span.price span.del")
         price_ins = product.select_one("span.price span.ins")
-        original_price = price_del.get_text(strip=True) if price_del else None
-        discounted_price = price_ins.get_text(strip=True) if price_ins else None
 
-        # -- Append item data --
         items.append({
             "name": name,
             "url": url,
             "image_url": image_url,
             "scraped_at": datetime.now().isoformat(),
             "price": {
-                "original": original_price,
-                "discounted": discounted_price,
+                "original": price_del.get_text(strip=True) if price_del else None,
+                "discounted": price_ins.get_text(strip=True) if price_ins else None,
                 "discount": None
             },
             "stock_status": None,
@@ -90,60 +77,125 @@ def parse_snapshot(filepath):
     return items
 
 
-if __name__ == "__main__":
+# -------------------------- FETCHER --------------------------
+async def fetch_page(session, url):
+    """Download page asynchronously."""
+    try:
+        async with session.get(url, headers=HEADERS, timeout=20) as resp:
+            if resp.status == 200:
+                return await resp.text()
+    except Exception:
+        return None
+    return None
+
+
+# -------------------------- SCRAPER --------------------------
+async def scrape_category(session, base_url):
+    """Scrape all pages in a category and save to JSON."""
+    category_name = Path(urlparse(base_url).path).name
+    all_items = []
+    page = 1
+
+    while True:
+        page_url = base_url if page == 1 else f"{base_url}?page={page}"
+        html = await fetch_page(session, page_url)
+        if not html:
+            break
+
+        page_items = parse_snapshot(html)
+        if not page_items:
+            break
+
+        all_items.extend(page_items)
+
+        soup = BeautifulSoup(html, "html.parser")
+        has_next = bool(soup.find("link", rel="next"))
+        if not has_next:
+            break
+
+        page += 1
+        await asyncio.sleep(0.6)
+
+    if all_items:
+        cf.save_json(all_items, DATA_DIR, prefix=category_name)
+        return category_name, len(all_items)
+    else:
+        return category_name, 0
+
+
+# -------------------------- SUMMARY TABLE --------------------------
+def show_summary_table(title, data_dict):
+    """Display a summary table — clean even if colors unsupported."""
+    if SUPPORTS_COLOR:
+        table = Table(title=title, show_lines=True)
+        table.add_column("Category", justify="left", style="cyan")
+        table.add_column("Items", justify="right", style="green")
+        table.add_column("Last Modified", justify="right", style="yellow")
+    else:
+        table = Table(title=title, show_lines=True)
+        table.add_column("Category", justify="left")
+        table.add_column("Items", justify="right")
+        table.add_column("Last Modified", justify="right")
+
+    for category, info in sorted(data_dict.items()):
+        table.add_row(category.capitalize(), str(info["count"]), info["date"])
+
+    console.print(table)
+
+
+# -------------------------- MAIN --------------------------
+async def main():
     today = datetime.now().strftime("%Y-%m-%d")
 
-    #Collect all existing JSON files for today's date ---
     existing_files = {
         "_".join(f.split("_")[:-1]): f
         for f in os.listdir(DATA_DIR)
         if f.endswith(".json") and today in f
     }
 
-    print(f"Found {len(existing_files)} files from today: {list(existing_files.keys())}")
+    scraped_today = {}
 
-    for link in URL:
-        path = urlparse(link).path
-        item_name = Path(path).name
+    async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(limit=10)) as session:
+        tasks = []
+        for link in URLS:
+            cat = Path(urlparse(link).path).name
+            if cat in existing_files:
+                continue
+            tasks.append(asyncio.create_task(scrape_category(session, link)))
 
-        print(f"\n{30*'-'}\nProcessing: {item_name.upper()}")
+        if tasks:
+            console.print(f"\n🚀 Starting {len(tasks)} async category scrapes...\n")
+            results = await asyncio.gather(*tasks)
 
-        # --- Skip if today's file already exists ---
-        if item_name in existing_files:
-            print(f"✔ File for {item_name} already exists for {today} — skipping scrape.\n")
-            continue
+            for cat, count in results:
+                scraped_today[cat] = {
+                    "count": count,
+                    "date": datetime.now().strftime("%Y-%m-%d %H:%M")
+                }
 
-        all_items = []
-        page = 1
+            show_summary_table("📦 Scraping Summary (New)", scraped_today)
 
-        while True:
-            page_url = link if page == 1 else f"{link}?page={page}"
-            html_file = cf.save_snapshot(page_url, SNAPSHOT_DIR, "MD Computers", page=page)
-
-            page_items = parse_snapshot(html_file)
-            all_items.extend(page_items)
-            has_next = cf.next_page(html_file)
-
-            try:
-                os.remove(html_file)
-                #print(f"Processed snapshot for {item_name} page {page}")
-            except Exception as e:
-                print(f"Failed to delete snapshot for {item_name} page {page}: {e}")
-
-            if not page_items:
-                print(f"No products on page {page}")
-
-            if not has_next:
-                #print(f"No more pages found after page {page}\n")
-                print(f"{page} Pages Processed")
-                break
-
-            page += 1
-            time.sleep(0.15)
-
-        if all_items:
-            cf.save_json(all_items, DATA_DIR, prefix=item_name)
-            print(f"✅ Saved {len(all_items)} items for {item_name}\n {30*'-'}\n")
         else:
-            print(f"\n⚠️ No items found for {item_name}, skipping save.")
-        time.sleep(random.uniform(1,3))
+            existing_data = {}
+            for f in sorted(os.listdir(DATA_DIR)):
+                if f.endswith(".json"):
+                    file_path = os.path.join(DATA_DIR, f)
+                    try:
+                        with open(file_path, "r", encoding="utf-8") as jf:
+                            data = json.load(jf)
+                        category = f.split("_")[0]
+                        item_count = len(data)
+                        modified_time = datetime.fromtimestamp(os.path.getmtime(file_path)).strftime("%Y-%m-%d %H:%M")
+                        existing_data[category] = {"count": item_count, "date": modified_time}
+                    except Exception:
+                        pass
+
+            if existing_data:
+                show_summary_table("📁 Existing Scraped Data", existing_data)
+                print("✅ All categories already scraped today.\n")
+            else:
+                print("⚠️ No existing data found in directory.\n")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

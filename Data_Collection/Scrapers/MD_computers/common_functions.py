@@ -35,9 +35,6 @@ def content_hash(content):
     return h.hexdigest()
 
 
-# ----------------------------
-#  📦 File Handling
-# ----------------------------
 def save_json(data, folder, prefix="data"):
     """
     Save scraped data to a timestamped JSON file.
@@ -126,9 +123,6 @@ def download_image(image_url, product_url, folder, collection=None, db_filter=No
         return None
 
 
-# ----------------------------
-#  🧩 MongoDB Operations
-# ----------------------------
 def upsert_product(data, conn_string, db_name, collection_name, unique_keys=("url",), verbose=False):
     """
     Inserts or updates a product in MongoDB based on unique keys.
@@ -168,10 +162,6 @@ def remove_non_internal_storage(conn_string, db_name):
 
     print(f"✅ Cleanup complete — removed {removed} non-internal drives.")
 
-
-# ----------------------------
-#  ⏳ Input & Parsing Helpers
-# ----------------------------
 def input_with_timeout(prompt, timeout=10):
     """Prompt user for input with timeout (auto default)."""
     print(f"{prompt} (auto-selects ALL after {timeout}s): ", end="", flush=True)

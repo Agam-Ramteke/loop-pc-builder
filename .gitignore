@@ -14,9 +14,7 @@
 *.htm
 
 # Ignore all folders and their contents
-*/snapshots
-*/product_images
-*/individual_snapshots
+async_snapshots
 
 
 !.gitignore
