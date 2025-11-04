@@ -11,9 +11,7 @@ from pymongo import MongoClient
 from bs4 import BeautifulSoup
 from fake_useragent import UserAgent
 
-# ----------------------------
-#  🧠 Utility Functions
-# ----------------------------
+
 def slugify(url: str) -> str:
     """Convert URL to a filesystem-safe string."""
     return (
@@ -63,6 +61,37 @@ def save_json(data, folder, prefix="data"):
         json.dump(data, f, indent=2, ensure_ascii=False)
 
     return filepath
+
+def is_external_drive(name: str, url: str = "") -> bool:
+    """
+    Lightweight heuristic to detect external drives by product name or URL.
+    No HTML parsing. Works for common patterns.
+    """
+    if not name:
+        return False
+
+    name = name.lower()
+    url = url.lower()
+
+    # Keywords that indicate external or removable storage
+    external_keywords = [
+        "external", "portable", "pen drive", "pen drive",
+        "flash drive", "usb", "thumb drive", "otg", "wireless ssd"
+    ]
+
+    # Quick keyword check in name or URL
+    if any(word in name for word in external_keywords):
+        return True
+    if any(word in url for word in external_keywords):
+        return True
+
+    # Special cases for brands/models known for external lines
+    brand_clues = ["seagate backup", "wd my passport", "sandisk ultra", "kingston datatraveler"]
+    if any(word in name for word in brand_clues):
+        return True
+
+    return False
+
 
 
 def save_snapshot(url, folder, prefix="", page=None):

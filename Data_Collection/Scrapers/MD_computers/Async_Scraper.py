@@ -27,46 +27,57 @@ FRESHNESS_LIMIT = timedelta(days=2)  # skip if scraped < 2 days ago
 # --- Async Mongo Update Task ---
 # --- Async Mongo Update Task ---
 async def process_product_async(loop, semaphore, collection_name, product_item):
-    """
-    Async task: parses HTML (threaded) + updates MongoDB (threaded).
-    Includes logic to skip or remove non-internal storage drives.
-    """
     async with semaphore:
         url = product_item["url"]
         image_url = product_item.get("image_url")
+        snapshot_path = product_item.get("snapshot_path")
 
         try:
-            # Parse in executor (BeautifulSoup is blocking)
-            product_data = await loop.run_in_executor(
-                None, cf.parse_product_page,
-                product_item["snapshot_path"], url, image_url, None
-            )
-
-            # --- Skip non-internal storage ---
+            # --- Pre-check storage drives before parsing ---
             if collection_name.lower() == "storage":
-                specs_text = " ".join(
-                    [f"{k} {v}".lower() for k, v in product_data.get("specifications", {}).items()]
-                )
-                if "internal" not in specs_text:
-                    print(f"⏩ Skipping Non-Internal Storage: {product_data['name']}")
-                    # Remove from DB if already exists
+                is_internal = await loop.run_in_executor(None, cf.is_internal_storage, snapshot_path)
+                if not is_internal:
+                    print(f"⏩ Skipping Non-Internal Storage (pre-check): {url}")
+
+                    # Remove from DB if it exists
                     await loop.run_in_executor(
                         None,
                         lambda: MongoClient(CONNECTION_STRING)[DB_NAME][collection_name].delete_one({"url": url})
                     )
-                    return f"🗑️ Removed non-internal storage: {product_data['name']}"
 
-            # --- Save to Mongo in executor ---
+                    # Cleanup files early
+                    if snapshot_path and os.path.exists(snapshot_path):
+                        os.remove(snapshot_path)
+                    if image_url and image_url.startswith(IMAGE_DIR):
+                        try:
+                            os.remove(image_url)
+                        except Exception:
+                            pass
+
+                    return f"🗑️ Fast-skip non-internal: {url}"
+
+            # --- Full parse only if valid ---
+            product_data = await loop.run_in_executor(
+                None, cf.parse_product_page,
+                snapshot_path, url, image_url, None
+            )
+
+            # Save to Mongo in executor
             await loop.run_in_executor(
                 None, cf.upsert_product,
                 product_data, CONNECTION_STRING, DB_NAME, collection_name
             )
 
+            # Cleanup snapshot
+            if snapshot_path and os.path.exists(snapshot_path):
+                os.remove(snapshot_path)
+
             return f"✅ Processed: {product_data['name']}"
 
         except Exception as e:
+            if snapshot_path and os.path.exists(snapshot_path):
+                os.remove(snapshot_path)
             return f"❌ Error processing {url}: {e}"
-
 
 
 async def main():
