@@ -107,7 +107,7 @@ def save_snapshot(url, folder, prefix="", page=None):
     return filepath
 
 
-def upsert_product(data, conn_string, db_name, collection_name, unique_keys=("url",),verbose = True):
+def upsert_product(data, conn_string, db_name, collection_name, unique_keys=("url",), verbose=True):
     """
     Inserts or updates a product in MongoDB based on unique keys.
     Updates only if the existing record is older than 2 days.
@@ -117,10 +117,6 @@ def upsert_product(data, conn_string, db_name, collection_name, unique_keys=("ur
         "updated" - existing document updated
         "skipped" - document exists and is fresh (< 2 days old)
     """
-
-    if verbose:
-        print(f"Inserted new: {data.get('name', 'Unknown product')}")
-
     client = MongoClient(conn_string)
     db = client[db_name]
     collection = db[collection_name]
@@ -144,26 +140,31 @@ def upsert_product(data, conn_string, db_name, collection_name, unique_keys=("ur
                 if age < timedelta(days=2):
                     if age.days == 0:
                         hours = age.seconds // 3600
-                        mins = (age.seconds % 3600) // 60  # Fixed calculation
+                        mins = (age.seconds % 3600) // 60
                         time_str = f"{hours}h {mins}m ago" if hours else f"{mins}m ago"
                     else:
                         time_str = f"{age.days} day{'s' if age.days > 1 else ''} ago"
 
-                    print(f"Skipped (fresh data {time_str}): {data.get('name', 'Unknown product')}")
-                    return "skipped"  # Return explicit status
+                    if verbose:
+                        print(f"Skipped (fresh data {time_str}): {data.get('name', 'Unknown product')}")
+                    return "skipped"
 
             except Exception as e:
                 print(f"Failed to parse scraped_at for {data.get('name')}: {e}")
 
-        # Update existing document
+        # --- Update existing record ---
         collection.update_one(query, {"$set": data}, upsert=True)
-        print(f"Updated: {data.get('name', 'Unknown product')}")
-        return "updated"  # Return explicit status
+        if verbose:
+            print(f"Updated: {data.get('name', 'Unknown product')}")
+        return "updated"
+
     else:
-        # Insert new document
+        # --- Insert new record ---
         collection.insert_one(data)
-        print(f"Inserted new: {data.get('name', 'Unknown product')}")
-        return "inserted"  # Return explicit status
+        if verbose:
+            print(f"Inserted new: {data.get('name', 'Unknown product')}")
+        return "inserted"
+
 
 
 
