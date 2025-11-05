@@ -1,12 +1,14 @@
+# --- Async_Scraper.py ---
 import os
 import json
 import glob
 import asyncio
 import random
-import time
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from pymongo import MongoClient
+import aiohttp
+from concurrent.futures import ThreadPoolExecutor
 
 import common_functions as cf
 
@@ -21,72 +23,77 @@ os.makedirs(IMAGE_DIR, exist_ok=True)
 
 DB_NAME = "PC_Parts"
 CONNECTION_STRING = "mongodb://localhost:27017/"
-FRESHNESS_LIMIT = timedelta(days=2)  # skip if scraped < 2 days ago
+FRESHNESS_LIMIT = timedelta(days=2)
+
+DEBUG = True
+MAX_CONCURRENT_DOWNLOADS = 25
+MAX_THREADS = 12
+RETRY_ATTEMPTS = 3
 
 
-# --- Async Mongo Update Task ---
-# --- Async Mongo Update Task ---
-async def process_product_async(loop, semaphore, collection_name, product_item):
+# -----------------------------
+# Async product processor
+# -----------------------------
+async def process_product_async(loop, semaphore, db, collection_name, product_item):
+    """Parse saved snapshot, then upsert into MongoDB."""
     async with semaphore:
-        url = product_item["url"]
+        url = product_item.get("url")
         image_url = product_item.get("image_url")
         snapshot_path = product_item.get("snapshot_path")
 
         try:
-            # --- Pre-check storage drives before parsing ---
-            if collection_name.lower() == "storage":
-                is_internal = await loop.run_in_executor(None, cf.is_internal_storage, snapshot_path)
-                if not is_internal:
-                    print(f"⏩ Skipping Non-Internal Storage (pre-check): {url}")
-
-                    # Remove from DB if it exists
-                    await loop.run_in_executor(
-                        None,
-                        lambda: MongoClient(CONNECTION_STRING)[DB_NAME][collection_name].delete_one({"url": url})
-                    )
-
-                    # Cleanup files early
-                    if snapshot_path and os.path.exists(snapshot_path):
-                        os.remove(snapshot_path)
-                    if image_url and image_url.startswith(IMAGE_DIR):
-                        try:
-                            os.remove(image_url)
-                        except Exception:
-                            pass
-
-                    return f"🗑️ Fast-skip non-internal: {url}"
-
-            # --- Full parse only if valid ---
+            # Parse product page (CPU-bound, so run in thread pool)
             product_data = await loop.run_in_executor(
-                None, cf.parse_product_page,
-                snapshot_path, url, image_url, None
+                None,
+                cf.parse_product_page,
+                snapshot_path,
+                url,
+                image_url,
+                db[collection_name],
             )
 
-            # Save to Mongo in executor
+            # Upsert to MongoDB (blocking I/O)
             await loop.run_in_executor(
-                None, cf.upsert_product,
-                product_data, CONNECTION_STRING, DB_NAME, collection_name
+                None,
+                cf.upsert_product,
+                product_data,
+                CONNECTION_STRING,
+                DB_NAME,
+                collection_name,
             )
 
-            # Cleanup snapshot
-            if snapshot_path and os.path.exists(snapshot_path):
-                os.remove(snapshot_path)
-
-            return f"✅ Processed: {product_data['name']}"
+            if DEBUG:
+                print(f"✅ Processed: {product_data.get('name', url)}")
+            return f"✅ {url}"
 
         except Exception as e:
+            if DEBUG:
+                print(f"❌ Error processing {url}: {e}")
+            return f"❌ {url}: {e}"
+
+        finally:
+            # Cleanup snapshot safely
             if snapshot_path and os.path.exists(snapshot_path):
-                os.remove(snapshot_path)
-            return f"❌ Error processing {url}: {e}"
+                try:
+                    os.remove(snapshot_path)
+                except Exception as e:
+                    if DEBUG:
+                        print(f"⚠️ Could not remove snapshot {snapshot_path}: {e}")
 
 
+# -----------------------------
+# Main orchestration
+# -----------------------------
 async def main():
-    loop = asyncio.get_event_loop()
-    semaphore = asyncio.Semaphore(6)
+    loop = asyncio.get_running_loop()
+    executor = ThreadPoolExecutor(max_workers=MAX_THREADS)
+    loop.set_default_executor(executor)
+
+    semaphore = asyncio.Semaphore(MAX_CONCURRENT_DOWNLOADS)
     client = MongoClient(CONNECTION_STRING)
     db = client[DB_NAME]
 
-    # --- Load available JSON files ---
+    # ---------------- Load JSONs ----------------
     all_json_files = sorted(glob.glob(os.path.join(DATA_DIR, "*.json")))
     if not all_json_files:
         print(f"No JSON files found in {DATA_DIR}.")
@@ -94,21 +101,19 @@ async def main():
 
     print("\n📦 Available JSON data files:")
     for i, file in enumerate(all_json_files, 1):
-        print(f"{i}. {os.path.basename(file)}")
+        print(f"{i}. {Path(file).stem.replace('_', ' ').capitalize()}")
 
-    choice = cf.input_with_timeout(
-        "\nEnter the number of the file to process (blank = ALL)",
-        timeout=10
-    ).strip()
+    raw_choice = cf.input_with_timeout(
+        "\nEnter the number of the file to process (blank = ALL)", timeout=10
+    )
+    choice = (raw_choice or "").strip()
 
     if choice and choice.isdigit() and 1 <= int(choice) <= len(all_json_files):
         files_to_process = [all_json_files[int(choice) - 1]]
-        print(f"\n📁 Selected file: {os.path.basename(files_to_process[0])}")
     else:
         files_to_process = all_json_files
-        print("\n📁 Processing all JSON files...")
 
-    # --- Mapping for collections ---
+    # ---------------- Mapping ----------------
     mapping = {
         "graphics-card": "GPUs",
         "processor": "Processors",
@@ -117,87 +122,130 @@ async def main():
         "smps": "SMPS",
         "storage": "Storage",
         "cabinet": "Cabinets",
-        "cpu-cooler": "CpuCoolers"
+        "cpu-cooler": "CpuCoolers",
     }
 
-
-    try:
+    async with aiohttp.ClientSession(headers={"User-Agent": "Mozilla/5.0"}) as session:
         for file_path in files_to_process:
             base_name = Path(file_path).stem.split("_")[0].lower()
             collection_name = mapping.get(base_name, base_name.capitalize())
             collection = db[collection_name]
 
             print(f"\n📂 Processing: {os.path.basename(file_path)} → Collection: {collection_name}")
+
             with open(file_path, "r", encoding="utf-8") as f:
                 products = json.load(f)
 
-            tasks = []
+            # ---------------- Filter stale items ----------------
+            stale_items = []
             for item in products:
                 url = item.get("url")
-                image_url = item.get("image_url")
                 if not url:
                     continue
 
-                # --- Check if record is fresh in DB ---
                 existing = collection.find_one({"url": url}, {"scraped_at": 1, "name": 1})
                 if existing and existing.get("scraped_at"):
-                    try:
-                        scraped_at = datetime.fromisoformat(existing["scraped_at"])
+                    scraped_at_raw = existing["scraped_at"]
+                    scraped_at = scraped_at_raw if isinstance(scraped_at_raw, datetime) else None
+                    if not scraped_at:
+                        try:
+                            scraped_at = datetime.fromisoformat(str(scraped_at_raw))
+                        except Exception:
+                            pass
+
+                    if scraped_at:
+                        if scraped_at.tzinfo is None:
+                            scraped_at = scraped_at.replace(tzinfo=timezone.utc)
                         age = datetime.now(timezone.utc) - scraped_at
                         if age < FRESHNESS_LIMIT:
-                            hours = age.seconds // 3600
-                            mins = (age.seconds % 3600) // 60
-                            time_str = f"{age.days}d {hours}h {mins}m ago" if age.days else f"{hours}h {mins}m ago"
-                            print(f"⏩ Skipping (fresh: {time_str}): {existing.get('name', url)}")
+                            if DEBUG:
+                                print(f"⏩ Skipping fresh: {existing.get('name', url)}")
                             continue
-                    except Exception:
-                        pass
+                stale_items.append(item)
 
-                # --- Download snapshot synchronously ---
-                try:
-                    html_file = cf.save_snapshot(url, SNAPSHOT_DIR, prefix="mdcomputers")
-                    item["snapshot_path"] = html_file
-                except Exception as e:
-                    print(f"⚠️ Failed to download {url}: {e}")
-                    continue
+            if not stale_items:
+                print("All products are up to date.")
+                continue
 
-                # --- Schedule async parsing/upsert ---
-                task = asyncio.create_task(
-                    process_product_async(loop, semaphore, collection_name, item)
+            print(f"🌐 Downloading {len(stale_items)} snapshots concurrently...")
+
+            # ---------------- Async download snapshots ----------------
+            download_tasks = [
+                cf.download_with_retry(
+                    session, item["url"], SNAPSHOT_DIR, prefix=base_name, retries=RETRY_ATTEMPTS
                 )
-                tasks.append(task)
-                await asyncio.sleep(random.uniform(1.0, 2.0))  # throttle fetches
+                for item in stale_items
+            ]
+            snapshots = await asyncio.gather(*download_tasks)
 
-            # --- Run async tasks per file with progress tracking ---
-            if tasks:
-                total = len(tasks)
-                print(f"\n🚀 Running {total} async parse + DB update tasks for {os.path.basename(file_path)}...\n")
+            # ---------------- Parse + DB upserts ----------------
+            tasks = []
+            failed_items = []
+            for item, snap_path in zip(stale_items, snapshots):
+                if not snap_path:
+                    failed_items.append(item)
+                    continue
+                item["snapshot_path"] = snap_path
+                tasks.append(
+                    asyncio.create_task(
+                        process_product_async(loop, semaphore, db, collection_name, item)
+                    )
+                )
 
-                completed = 0
-                for coro in asyncio.as_completed(tasks):
-                    result = await coro
-                    completed += 1
-                    print(f"{result}  ({completed}/{total} completed)")
+            print(f"🚀 Running {len(tasks)} async parse + DB update tasks...")
+            completed = 0
+            for coro in asyncio.as_completed(tasks):
+                result = await coro
+                completed += 1
+                print(f"{result}  ({completed}/{len(tasks)} done)")
 
-                tasks.clear()
+            # ---------------- Retry Failed Items ----------------
+            if failed_items:
+                print(f"\n🔁 Retrying {len(failed_items)} failed downloads...\n")
+                retry_downloads = [
+                    cf.download_with_retry(
+                        session, item["url"], SNAPSHOT_DIR, prefix=base_name, retries=5
+                    )
+                    for item in failed_items
+                ]
+                retry_snapshots = await asyncio.gather(*retry_downloads)
 
-            print(f"\n✅ Completed processing file: {os.path.basename(file_path)}\n")
+                retry_tasks = []
+                for item, snap_path in zip(failed_items, retry_snapshots):
+                    if not snap_path:
+                        print(f"❌ Still failed after retry: {item.get('url')}")
+                        continue
+                    item["snapshot_path"] = snap_path
+                    retry_tasks.append(
+                        asyncio.create_task(
+                            process_product_async(loop, semaphore, db, collection_name, item)
+                        )
+                    )
 
-        print("\n🎉 All selected JSON files processed successfully!\n")
+                if retry_tasks:
+                    print(f"🚀 Reprocessing {len(retry_tasks)} retried products...")
+                    completed = 0
+                    for coro in asyncio.as_completed(retry_tasks):
+                        result = await coro
+                        completed += 1
+                        print(f"{result}  (retry {completed}/{len(retry_tasks)} done)")
+                    print("✅ Retry batch complete.\n")
 
-    except asyncio.CancelledError:
-        print("⚠️ Cancelled by user.")
-    except Exception as e:
-        print(f"💥 Unexpected error: {e}")
-    finally:
-        # --- Cleanup snapshots ---
-        print("\n🧹 Cleaning up snapshot files...")
-        for file in os.listdir(SNAPSHOT_DIR):
-            try:
-                os.remove(os.path.join(SNAPSHOT_DIR, file))
-            except Exception:
-                pass
-        print("🧾 Cleanup complete.")
+            print(f"\n✅ Finished file: {os.path.basename(file_path)}\n")
+
+    # ---------------- Cleanup ----------------
+    print("\n🧹 Cleaning up snapshot files...")
+    cleanup_tasks = [
+        asyncio.to_thread(os.remove, os.path.join(SNAPSHOT_DIR, f))
+        for f in os.listdir(SNAPSHOT_DIR)
+        if f.endswith(".html")
+    ]
+    await asyncio.gather(*cleanup_tasks, return_exceptions=True)
+    print("🧾 Cleanup complete.")
+
+    # ---------------- Async cleanup of non-internal drives ----------------
+    await cf.async_remove_non_internal_storage(CONNECTION_STRING, DB_NAME)
+    print("\n🎉 All selected JSON files processed successfully!\n")
 
 
 if __name__ == "__main__":

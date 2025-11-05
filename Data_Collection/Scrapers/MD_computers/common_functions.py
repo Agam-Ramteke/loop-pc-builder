@@ -6,26 +6,53 @@ import hashlib
 import threading
 import queue
 import random
+import re
 from datetime import datetime, timedelta, timezone
+from typing import Optional, Set, Dict, Any
 from pymongo import MongoClient
 from bs4 import BeautifulSoup
 from fake_useragent import UserAgent
+import aiohttp
+import asyncio
+
+# -----------------------
+# Configuration defaults
+# -----------------------
+DEFAULT_USER_AGENT = "Mozilla/5.0 (compatible; Scraper/1.0)"
+MAX_FILENAME_LENGTH = 150
+MAX_HTML_SIZE = 2_000_000  # 2 MB limit (truncate if larger)
+DEFAULT_ASYNC_TIMEOUT = 30  # seconds
+
+
+# -----------------------
+# Utilities
+# -----------------------
+def safe_filename(name: str) -> str:
+    """
+    Sanitize string to make it a valid filename across platforms.
+    Removes or replaces characters not allowed on Windows and trims length.
+    """
+    if not name:
+        return ""
+    # replace scheme and control characters first
+    s = name.replace("https://", "").replace("http://", "")
+    # replace forbidden characters for filenames: \ / : * ? " < > |
+    s = re.sub(r'[\\/:*?"<>|]', "_", s)
+    # normalize whitespace to single underscores
+    s = re.sub(r"\s+", "_", s)
+    # trim length
+    if len(s) > MAX_FILENAME_LENGTH:
+        s = s[:MAX_FILENAME_LENGTH]
+    return s
 
 
 def slugify(url: str) -> str:
-    """Convert URL to a filesystem-safe string."""
-    return (
-        url.replace("https://", "")
-        .replace("http://", "")
-        .replace("/", "_")
-        .replace("?", "_")
-        .replace("&", "_")
-        .replace("=", "_")
-    )
+    """Compatibility wrapper for older code; uses safe_filename internally."""
+    return safe_filename(url)
 
 
-def content_hash(content):
-    """Create an MD5 hash for deduplication."""
+def content_hash(content: bytes | str) -> str:
+    """Create an MD5 hash for deduplication (works on bytes or str)."""
     h = hashlib.md5()
     if isinstance(content, str):
         content = content.encode("utf-8")
@@ -33,10 +60,14 @@ def content_hash(content):
     return h.hexdigest()
 
 
-def save_json(data, folder, prefix="data"):
+# -----------------------
+# JSON / file helpers
+# -----------------------
+def save_json(data: Any, folder: str, prefix: str = "data") -> str:
     """
-    Save scraped data to a timestamped JSON file.
-    Also deletes old JSONs (>2 days).
+    Save data to a timestamped JSON file (yyyy-mm-dd).
+    Deletes old JSON files starting with the same prefix older than 2 days.
+    Returns the path saved.
     """
     os.makedirs(folder, exist_ok=True)
     today = datetime.now(timezone.utc).date()
@@ -46,81 +77,129 @@ def save_json(data, folder, prefix="data"):
         if filename.endswith(".json") and filename.startswith(prefix):
             try:
                 date_str = filename.rsplit("_", 1)[-1].replace(".json", "")
-                file_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+                try:
+                    file_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+                except Exception:
+                    continue
                 if (today - file_date).days > 2:
-                    print(f"🗑️ Deleting old file: {filename}")
-                    os.remove(os.path.join(folder, filename))
+                    try:
+                        os.remove(os.path.join(folder, filename))
+                        # small print for debug — can be silenced by caller
+                        print(f"🗑️ Deleting old file: {filename}")
+                    except Exception:
+                        pass
             except Exception:
                 pass
 
-    # Save new file
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    filepath = os.path.join(folder, f"{prefix}_{timestamp}.json")
-
+    filename = f"{prefix}_{timestamp}.json"
+    filepath = os.path.join(folder, filename)
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
-
     return filepath
 
-def is_external_drive(name: str, url: str = "") -> bool:
+
+# -----------------------
+# Snapshot downloaders
+# -----------------------
+def save_snapshot(url: str, folder: str, prefix: str = "", page: Optional[int] = None,
+                  timeout: int = 20, user_agent: str = DEFAULT_USER_AGENT,
+                  max_size: int = MAX_HTML_SIZE) -> Optional[str]:
     """
-    Lightweight heuristic to detect external drives by product name or URL.
-    No HTML parsing. Works for common patterns.
+    Synchronous snapshot saver using `requests`.
+    Returns filepath or None on failure.
     """
-    if not name:
-        return False
-
-    name = name.lower()
-    url = url.lower()
-
-    # Keywords that indicate external or removable storage
-    external_keywords = [
-        "external", "portable", "pen drive", "pen drive",
-        "flash drive", "usb", "thumb drive", "otg", "wireless ssd"
-    ]
-
-    # Quick keyword check in name or URL
-    if any(word in name for word in external_keywords):
-        return True
-    if any(word in url for word in external_keywords):
-        return True
-
-    # Special cases for brands/models known for external lines
-    brand_clues = ["seagate backup", "wd my passport", "sandisk ultra", "kingston datatraveler"]
-    if any(word in name for word in brand_clues):
-        return True
-
-    return False
-
-
-
-def save_snapshot(url, folder, prefix="", page=None):
-    """Download and save HTML snapshot for later parsing."""
     os.makedirs(folder, exist_ok=True)
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     extra = f"_p{page}" if page else ""
-    slug = slugify(url)
+    slug = safe_filename(url)
     filename = f"{prefix}_{today}{extra}_{slug}.html"
     filepath = os.path.join(folder, filename)
 
     try:
-        response = requests.get(url, headers={"User-Agent": UserAgent().random})
-        response.raise_for_status()
+        resp = requests.get(url, headers={"User-Agent": UserAgent().random if UserAgent else user_agent},
+                            timeout=timeout)
+        resp.raise_for_status()
+        text = resp.text
+        if max_size and len(text) > max_size:
+            text = text[:max_size]
         with open(filepath, "w", encoding="utf-8") as f:
-            f.write(response.text)
+            f.write(text)
         return filepath
     except Exception as e:
         print(f"⚠️ Failed to save snapshot for {url}: {e}")
         return None
 
 
-def download_image(image_url, product_url, folder, collection=None, db_filter=None, seen_hashes=set()):
-    """Downloads and stores an image locally (with duplicate protection)."""
-    if not image_url:
+async def async_save_snapshot(session: aiohttp.ClientSession, url: str, folder: str, prefix: str = "",
+                              page: Optional[int] = None, timeout: int = DEFAULT_ASYNC_TIMEOUT,
+                              max_size: int = MAX_HTML_SIZE) -> Optional[str]:
+    """
+    Asynchronous snapshot saver using aiohttp. Returns filepath or None.
+    Truncates HTML if it exceeds max_size.
+    """
+    os.makedirs(folder, exist_ok=True)
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    extra = f"_p{page}" if page else ""
+    slug = safe_filename(url)
+    filename = f"{prefix}_{today}{extra}_{slug}.html"
+    filepath = os.path.join(folder, filename)
+
+    try:
+        # aiohttp timeout wrapper
+        timeout_obj = aiohttp.ClientTimeout(total=timeout)
+        async with session.get(url, timeout=timeout_obj) as resp:
+            resp.raise_for_status()
+            text = await resp.text()
+            if max_size and len(text) > max_size:
+                text = text[:max_size]
+        # write to file
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(text)
+        return filepath
+    except Exception as e:
+        print(f"⚠️ Async download failed: {url}: {e}")
         return None
 
+
+async def download_with_retry(session: aiohttp.ClientSession, url: str, folder: str, prefix: str,
+                              retries: int = 3, backoff: tuple = (1.0, 3.0),
+                              page: Optional[int] = None) -> Optional[str]:
+    """
+    Retry wrapper for async_save_snapshot.
+    `backoff` is (min, max) seconds to wait randomly between retries.
+    """
+    for attempt in range(1, retries + 1):
+        snap = await async_save_snapshot(session, url, folder, prefix, page=page)
+        if snap:
+            return snap
+        if attempt < retries:
+            wait = random.uniform(backoff[0], backoff[1])
+            await asyncio.sleep(wait)
+            print(f"⚠️ Retry {attempt}/{retries} for {url} (waited {wait:.1f}s)")
+    print(f"❌ Giving up on {url} after {retries} attempts.")
+    return None
+
+
+# -----------------------
+# Image downloaders
+# -----------------------
+def download_image(image_url: str, product_url: str, folder: str,
+                   collection=None, db_filter: dict | None = None,
+                   seen_hashes: Optional[Set[str]] = None,
+                   timeout: int = 20) -> Optional[str]:
+    """
+    Synchronous image downloader using requests.
+    Avoids duplicates using seen_hashes (pass a set to persist across calls).
+    If `collection` and `db_filter` are provided, will return DB image_path if found.
+    """
+    if not image_url:
+        return None
+    if seen_hashes is None:
+        seen_hashes = set()
+
     os.makedirs(folder, exist_ok=True)
-    slug = slugify(product_url)
+    slug = safe_filename(product_url)
     ext = os.path.splitext(image_url.split("?")[0])[1] or ".jpg"
     filepath = os.path.join(folder, f"{slug}{ext}")
 
@@ -128,17 +207,17 @@ def download_image(image_url, product_url, folder, collection=None, db_filter=No
         return filepath
 
     try:
-        response = requests.get(image_url, headers={"User-Agent": UserAgent().random})
-        response.raise_for_status()
-        img_bytes = response.content
+        resp = requests.get(image_url, headers={"User-Agent": UserAgent().random if UserAgent else DEFAULT_USER_AGENT},
+                            timeout=timeout)
+        resp.raise_for_status()
+        img_bytes = resp.content
         img_hash = content_hash(img_bytes)
-
-        # Avoid duplicates
         if img_hash in seen_hashes:
+            # file already recorded; but return the path we would use
             return filepath
         seen_hashes.add(img_hash)
 
-        # Check if already in DB
+        # check DB for existing path if requested
         if collection is not None and db_filter:
             existing = collection.find_one(db_filter)
             if existing and existing.get("image_path"):
@@ -152,49 +231,129 @@ def download_image(image_url, product_url, folder, collection=None, db_filter=No
         return None
 
 
-def upsert_product(data, conn_string, db_name, collection_name, unique_keys=("url",), verbose=False):
+async def async_download_image(session: aiohttp.ClientSession, image_url: str, product_url: str,
+                               folder: str, collection=None, db_filter: dict | None = None,
+                               seen_hashes: Optional[Set[str]] = None,
+                               timeout: int = DEFAULT_ASYNC_TIMEOUT) -> Optional[str]:
     """
-    Inserts or updates a product in MongoDB based on unique keys.
-    Always overwrites existing data. Avoids duplicate inserts.
+    Async image downloader using aiohttp.
     """
-    client = MongoClient(conn_string)
-    db = client[db_name]
-    collection = db[collection_name]
+    if not image_url:
+        return None
+    if seen_hashes is None:
+        seen_hashes = set()
 
-    # Build unique query
+    os.makedirs(folder, exist_ok=True)
+    slug = safe_filename(product_url)
+    ext = os.path.splitext(image_url.split("?")[0])[1] or ".jpg"
+    filepath = os.path.join(folder, f"{slug}{ext}")
+
+    if os.path.exists(filepath):
+        return filepath
+
+    try:
+        timeout_obj = aiohttp.ClientTimeout(total=timeout)
+        async with session.get(image_url, timeout=timeout_obj) as resp:
+            resp.raise_for_status()
+            img_bytes = await resp.read()
+
+        img_hash = content_hash(img_bytes)
+        if img_hash in seen_hashes:
+            return filepath
+        seen_hashes.add(img_hash)
+
+        if collection is not None and db_filter:
+            existing = collection.find_one(db_filter)
+            if existing and existing.get("image_path"):
+                return existing["image_path"]
+
+        # write file in async-friendly thread
+        await asyncio.to_thread(_write_binary_file, filepath, img_bytes)
+        return filepath
+    except Exception as e:
+        print(f"⚠️ Failed to async download image {image_url}: {e}")
+        return None
+
+
+def _write_binary_file(path: str, data: bytes) -> None:
+    """Helper to write binary data to disk (used with asyncio.to_thread)."""
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "wb") as f:
+        f.write(data)
+
+
+# -----------------------
+# Mongo helpers
+# -----------------------
+def upsert_product(data, db_or_conn, db_name=None, collection_name=None, unique_keys=("url",), verbose=False):
+    """
+    Flexible upsert that accepts either a MongoClient instance or connection string.
+    """
+    if isinstance(db_or_conn, MongoClient):
+        db = db_or_conn[db_name]
+    else:
+        db = MongoClient(db_or_conn)[db_name]
+
+    if not collection_name:
+        raise ValueError("collection_name is required")
+
+    collection = db[collection_name]
     query = {k: data[k] for k in unique_keys if k in data}
     if not query:
         raise ValueError(f"None of {unique_keys} found in data")
 
     result = collection.update_one(query, {"$set": data}, upsert=True)
     if verbose:
-        if result.matched_count > 0:
-            print(f"🔁 Updated: {data.get('name', 'Unknown product')}")
-        else:
-            print(f"🆕 Inserted: {data.get('name', 'Unknown product')}")
-    return "updated" if result.matched_count > 0 else "inserted"
+        print(("🔁 Updated" if result.matched_count else "🆕 Inserted"), data.get("name", "<unknown>"))
+    return "updated" if result.matched_count else "inserted"
 
 
-def remove_non_internal_storage(conn_string, db_name):
-    """Removes non-internal storage drives from the database."""
+# -----------------------
+# Cleanup helpers
+# -----------------------
+
+async def async_remove_non_internal_storage(conn_string: str, db_name: str) -> None:
+    """
+    Asynchronously removes non-internal storage drives from the MongoDB "Storage" collection.
+    Uses threads to offload blocking I/O for responsiveness.
+    """
     client = MongoClient(conn_string)
     db = client[db_name]
     collection = db["Storage"]
 
+    print("\n🔍 Starting async cleanup for non-internal storage drives...")
     removed = 0
-    for item in collection.find({}, {"specifications": 1, "name": 1, "url": 1}):
-        specs_text = " ".join([f"{k} {v}".lower() for k, v in item.get("specifications", {}).items()])
-        if "internal" not in specs_text:
-            collection.delete_one({"url": item["url"]})
-            removed += 1
-            print(f"🗑️ Removed non-internal storage: {item.get('name')}")
 
-    print(f"✅ Cleanup complete — removed {removed} non-internal drives.")
+    # Fetch items (I/O bound → offload to thread)
+    items = await asyncio.to_thread(
+        lambda: list(collection.find({}, {"specifications": 1, "name": 1, "url": 1}))
+    )
 
-def input_with_timeout(prompt, timeout=10):
+    async def check_and_remove(item):
+        nonlocal removed
+        try:
+            specs = item.get("specifications", {}) or {}
+            specs_text = " ".join([f"{k} {v}".lower() for k, v in specs.items()])
+            if "internal" not in specs_text:
+                await asyncio.to_thread(collection.delete_one, {"url": item["url"]})
+                removed += 1
+                print(f"🗑️ Removed non-internal storage: {item.get('name')}")
+        except Exception as e:
+            if DEBUG:
+                print(f"⚠️ Error checking {item.get('name')}: {e}")
+
+    # Run deletion checks concurrently
+    tasks = [check_and_remove(item) for item in items]
+    await asyncio.gather(*tasks)
+
+    print(f"✅ Async cleanup complete — removed {removed} non-internal drives.\n")
+
+
+
+def input_with_timeout(prompt: str, timeout: int = 10) -> str:
     """Prompt user for input with timeout (auto default)."""
     print(f"{prompt} (auto-selects ALL after {timeout}s): ", end="", flush=True)
-    q = queue.Queue()
+    q: queue.Queue = queue.Queue()
 
     def read_input():
         try:
@@ -210,8 +369,16 @@ def input_with_timeout(prompt, timeout=10):
         return ""
 
 
-def parse_product_page(html_file_path, product_url=None, image_url=None, collection=None):
-    """Parse product details from saved HTML."""
+# -----------------------
+# HTML parsing helpers
+# -----------------------
+def parse_product_page(html_file_path: str, product_url: Optional[str] = None,
+                       image_url: Optional[str] = None, collection=None) -> Dict[str, Any]:
+    """
+    Parse product details from saved HTML.
+    Returns a dict suitable for `upsert_product`.
+    """
+    # open file
     with open(html_file_path, "r", encoding="utf-8") as f:
         soup = BeautifulSoup(f, "html.parser")
 
@@ -235,7 +402,7 @@ def parse_product_page(html_file_path, product_url=None, image_url=None, collect
     stock_status = stock_el.get_text(strip=True) if stock_el else None
 
     # --- Specifications ---
-    specifications = {}
+    specifications: Dict[str, str] = {}
     for row in soup.select("div#tab-specification table.table tr"):
         cols = row.find_all("td")
         if len(cols) == 2:
@@ -243,14 +410,19 @@ def parse_product_page(html_file_path, product_url=None, image_url=None, collect
             value = cols[1].get_text(strip=True)
             specifications[key] = value
 
-    # --- Image download ---
-    local_image_path = download_image(
-        image_url,
-        product_url=product_url,
-        folder=os.path.join(os.path.dirname(html_file_path), "images"),
-        collection=collection,
-        db_filter={"url": product_url}
-    )
+    # --- Image download (synchronous) ---
+    local_image_path = None
+    try:
+        images_folder = os.path.join(os.path.dirname(html_file_path), "images")
+        local_image_path = download_image(
+            image_url,
+            product_url=product_url,
+            folder=images_folder,
+            collection=collection,
+            db_filter={"url": product_url}
+        )
+    except Exception:
+        local_image_path = None
 
     product_data = {
         "name": name,
@@ -260,7 +432,8 @@ def parse_product_page(html_file_path, product_url=None, image_url=None, collect
         "stock_status": stock_status,
         "specifications": specifications,
         "source": "MD Computers",
-        "scraped_at": datetime.now(timezone.utc).isoformat(),
+        # store scraped_at as ISO if desired, but prefer datetime objects in DB so store datetime here:
+        "scraped_at": datetime.now(timezone.utc),
     }
 
     return product_data
