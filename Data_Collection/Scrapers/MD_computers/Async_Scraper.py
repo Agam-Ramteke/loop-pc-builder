@@ -9,6 +9,7 @@ from pathlib import Path
 from pymongo import MongoClient
 import aiohttp
 from concurrent.futures import ThreadPoolExecutor
+from fake_useragent import UserAgent
 
 import common_functions as cf
 
@@ -124,8 +125,10 @@ async def main():
         "cabinet": "Cabinets",
         "cpu-cooler": "CpuCoolers",
     }
+    ua = UserAgent()
+    headers = {"User-Agent": ua.random}
 
-    async with aiohttp.ClientSession(headers={"User-Agent": "Mozilla/5.0"}) as session:
+    async with aiohttp.ClientSession(headers= headers) as session:
         for file_path in files_to_process:
             base_name = Path(file_path).stem.split("_")[0].lower()
             collection_name = mapping.get(base_name, base_name.capitalize())
@@ -242,6 +245,9 @@ async def main():
     ]
     await asyncio.gather(*cleanup_tasks, return_exceptions=True)
     print("🧾 Cleanup complete.")
+
+    #-----------------Recover Missing Images---------------
+    await cf.async_recover_missing_images(CONNECTION_STRING,DB_NAME,IMAGE_DIR)
 
     # ---------------- Async cleanup of non-internal drives ----------------
     await cf.async_remove_non_internal_storage(CONNECTION_STRING, DB_NAME)

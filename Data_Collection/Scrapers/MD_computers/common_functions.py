@@ -15,18 +15,14 @@ from fake_useragent import UserAgent
 import aiohttp
 import asyncio
 
-# -----------------------
 # Configuration defaults
-# -----------------------
 DEFAULT_USER_AGENT = "Mozilla/5.0 (compatible; Scraper/1.0)"
 MAX_FILENAME_LENGTH = 150
 MAX_HTML_SIZE = 2_000_000  # 2 MB limit (truncate if larger)
 DEFAULT_ASYNC_TIMEOUT = 30  # seconds
 
 
-# -----------------------
 # Utilities
-# -----------------------
 def safe_filename(name: str) -> str:
     """
     Sanitize string to make it a valid filename across platforms.
@@ -60,9 +56,7 @@ def content_hash(content: bytes | str) -> str:
     return h.hexdigest()
 
 
-# -----------------------
 # JSON / file helpers
-# -----------------------
 def save_json(data: Any, folder: str, prefix: str = "data") -> str:
     """
     Save data to a timestamped JSON file (yyyy-mm-dd).
@@ -99,9 +93,7 @@ def save_json(data: Any, folder: str, prefix: str = "data") -> str:
     return filepath
 
 
-# -----------------------
 # Snapshot downloaders
-# -----------------------
 def save_snapshot(url: str, folder: str, prefix: str = "", page: Optional[int] = None,
                   timeout: int = 20, user_agent: str = DEFAULT_USER_AGENT,
                   max_size: int = MAX_HTML_SIZE) -> Optional[str]:
@@ -181,9 +173,7 @@ async def download_with_retry(session: aiohttp.ClientSession, url: str, folder: 
     return None
 
 
-# -----------------------
 # Image downloaders
-# -----------------------
 def download_image(image_url: str, product_url: str, folder: str,
                    collection=None, db_filter: dict | None = None,
                    seen_hashes: Optional[Set[str]] = None,
@@ -282,9 +272,8 @@ def _write_binary_file(path: str, data: bytes) -> None:
         f.write(data)
 
 
-# -----------------------
 # Mongo helpers
-# -----------------------
+
 def upsert_product(data, db_or_conn, db_name=None, collection_name=None, unique_keys=("url",), verbose=False):
     """
     Flexible upsert that accepts either a MongoClient instance or connection string.
@@ -308,14 +297,17 @@ def upsert_product(data, db_or_conn, db_name=None, collection_name=None, unique_
     return "updated" if result.matched_count else "inserted"
 
 
-# -----------------------
-# Cleanup helpers
-# -----------------------
 
-async def async_remove_non_internal_storage(conn_string: str, db_name: str) -> None:
+# Cleanup helpers
+
+
+
+DEBUG = True  # ensure this matches your global debug flag
+
+async def async_remove_non_internal_storage(conn_string: str, db_name: str, image_dir: str = "product_images") -> None:
     """
-    Asynchronously removes non-internal storage drives from the MongoDB "Storage" collection.
-    Uses threads to offload blocking I/O for responsiveness.
+    Asynchronously removes non-internal storage drives and their images from the MongoDB 'Storage' collection.
+    Uses asyncio.to_thread() to offload blocking I/O for responsiveness.
     """
     client = MongoClient(conn_string)
     db = client[db_name]
@@ -324,9 +316,9 @@ async def async_remove_non_internal_storage(conn_string: str, db_name: str) -> N
     print("\n🔍 Starting async cleanup for non-internal storage drives...")
     removed = 0
 
-    # Fetch items (I/O bound → offload to thread)
+    # Fetch items in a thread to avoid blocking the event loop
     items = await asyncio.to_thread(
-        lambda: list(collection.find({}, {"specifications": 1, "name": 1, "url": 1}))
+        lambda: list(collection.find({}, {"specifications": 1, "name": 1, "url": 1, "image_path": 1}))
     )
 
     async def check_and_remove(item):
@@ -334,19 +326,33 @@ async def async_remove_non_internal_storage(conn_string: str, db_name: str) -> N
         try:
             specs = item.get("specifications", {}) or {}
             specs_text = " ".join([f"{k} {v}".lower() for k, v in specs.items()])
+
             if "internal" not in specs_text:
+                # Delete database entry
                 await asyncio.to_thread(collection.delete_one, {"url": item["url"]})
                 removed += 1
                 print(f"🗑️ Removed non-internal storage: {item.get('name')}")
+
+                # Remove image file if exists
+                image_path = item.get("image_path")
+                if image_path and os.path.exists(image_path):
+                    try:
+                        await asyncio.to_thread(os.remove, image_path)
+                        if DEBUG:
+                            print(f"🧹 Deleted image: {image_path}")
+                    except Exception as e:
+                        if DEBUG:
+                            print(f"⚠️ Failed to delete image {image_path}: {e}")
+
         except Exception as e:
             if DEBUG:
-                print(f"⚠️ Error checking {item.get('name')}: {e}")
+                print(f"⚠️ Error processing {item.get('name', 'Unknown')}: {e}")
 
-    # Run deletion checks concurrently
+    # Run all checks concurrently
     tasks = [check_and_remove(item) for item in items]
     await asyncio.gather(*tasks)
 
-    print(f"✅ Async cleanup complete — removed {removed} non-internal drives.\n")
+    print(f"✅ Async cleanup complete — removed {removed} non-internal drives and their images.\n")
 
 
 
@@ -369,9 +375,7 @@ def input_with_timeout(prompt: str, timeout: int = 10) -> str:
         return ""
 
 
-# -----------------------
 # HTML parsing helpers
-# -----------------------
 def parse_product_page(html_file_path: str, product_url: Optional[str] = None,
                        image_url: Optional[str] = None, collection=None) -> Dict[str, Any]:
     """
@@ -437,3 +441,102 @@ def parse_product_page(html_file_path: str, product_url: Optional[str] = None,
     }
 
     return product_data
+
+import os
+import asyncio
+import aiohttp
+from pymongo import MongoClient
+from fake_useragent import UserAgent
+from urllib.parse import urlparse
+from bson import ObjectId
+
+DEBUG = True  # match your global debug flag
+
+
+async def async_recover_missing_images(conn_string: str, db_name: str, image_dir: str = "product_images", concurrency: int = 15):
+    """
+    Asynchronously scans all MongoDB collections for missing image files.
+    If an image file is missing, it redownloads the image and updates the MongoDB document.
+    """
+
+    client = MongoClient(conn_string)
+    db = client[db_name]
+    ua = UserAgent()
+
+    print("\n🔍 Starting async image recovery check...")
+    collections = db.list_collection_names()
+
+    semaphore = asyncio.Semaphore(concurrency)
+    total_missing = 0
+    total_fixed = 0
+
+    async with aiohttp.ClientSession() as session:
+
+        async def check_and_fix_image(collection_name, doc):
+            nonlocal total_missing, total_fixed
+            async with semaphore:
+                try:
+                    image_url = doc.get("image_url")
+                    image_path = doc.get("image_path")
+                    name = doc.get("name", "Unknown")
+                    url = doc.get("url")
+
+                    # Validate: does image_path exist?
+                    if not image_path or not os.path.exists(image_path):
+                        total_missing += 1
+
+                        if not image_url:
+                            if DEBUG:
+                                print(f"⚠️ Missing image URL for {name}")
+                            return
+
+                        # Build new image filename
+                        parsed = urlparse(url)
+                        safe_name = parsed.path.replace("/", "_").strip("_")
+                        ext = os.path.splitext(image_url.split("?")[0])[1] or ".jpg"
+                        new_filename = f"{safe_name}{ext}"
+                        new_path = os.path.join(image_dir, new_filename)
+
+                        os.makedirs(image_dir, exist_ok=True)
+
+                        # Download asynchronously
+                        headers = {"User-Agent": ua.random}
+                        try:
+                            async with session.get(image_url, headers=headers, timeout=20) as resp:
+                                resp.raise_for_status()
+                                content = await resp.read()
+                            await asyncio.to_thread(open(new_path, "wb").write, content)
+
+                            # Update DB document
+                            await asyncio.to_thread(
+                                db[collection_name].update_one,
+                                {"_id": doc["_id"]},
+                                {"$set": {"image_path": new_path}}
+                            )
+                            total_fixed += 1
+
+                            if DEBUG:
+                                print(f"🧩 Recovered image for {name} → {new_path}")
+
+                        except Exception as e:
+                            if DEBUG:
+                                print(f"❌ Failed to redownload {name}: {e}")
+
+                except Exception as e:
+                    if DEBUG:
+                        print(f"⚠️ Error processing doc in {collection_name}: {e}")
+
+        # --- Traverse all collections concurrently ---
+        for collection_name in collections:
+            collection = db[collection_name]
+            docs = await asyncio.to_thread(
+                lambda: list(collection.find({}, {"_id": 1, "url": 1, "image_url": 1, "image_path": 1, "name": 1}))
+            )
+
+            print(f"\n📂 Checking collection: {collection_name} ({len(docs)} docs)")
+            tasks = [check_and_fix_image(collection_name, doc) for doc in docs]
+            await asyncio.gather(*tasks)
+
+        print(f"\n✅ Image recovery complete.")
+        print(f"Missing images found: {total_missing}")
+        print(f"Recovered successfully: {total_fixed}\n")
