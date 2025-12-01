@@ -6,7 +6,7 @@ import datetime
 import sys
 import os
 import matplotlib.pyplot as plt
-
+#aagai me dostoooooo
 # Settings
 DB_NAME = "PC_Parts"
 COLLECTION_NAME = None
