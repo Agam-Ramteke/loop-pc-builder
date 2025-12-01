@@ -15,6 +15,7 @@
 
 # Ignore all folders and their contents
 async_snapshots
+.venv
 
 
 !.gitignore
