@@ -10,7 +10,6 @@ from pymongo import MongoClient
 import aiohttp
 from concurrent.futures import ThreadPoolExecutor
 from fake_useragent import UserAgent
-
 import common_functions as cf
 
 # --- SETTINGS ---
