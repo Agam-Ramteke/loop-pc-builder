@@ -13,7 +13,6 @@ import random
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 from datetime import datetime
-
 # ---------- CONFIG ----------
 COLLECTION_URL = "https://www.elitehubs.com/collections/processor"
 BASE_URL = "https://www.elitehubs.com"
