@@ -2,7 +2,7 @@
 elitehubs.py
 Download collection page -> parse product links -> download each product page temporarily
 Parse fields into JSON and save to Elite Hubs/data/.
-Also:
+Also: (08/12/2025)
  - delete temporary HTML snapshots after use
  - prune JSON files older than PRUNE_DAYS (default 7 days)
 """
