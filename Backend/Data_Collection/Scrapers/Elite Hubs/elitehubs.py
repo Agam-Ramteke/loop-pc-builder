@@ -1,7 +1,10 @@
 """
 elitehubs.py
 Download collection page -> parse product links -> download each product page temporarily
-Parse fields into JSON matching your boyfriend's format and save to Elite Hubs/data/.
+Parse fields into JSON and save to Elite Hubs/data/.
+Also:
+ - delete temporary HTML snapshots after use
+ - prune JSON files older than PRUNE_DAYS (default 7 days)
 """
 
 import requests
@@ -12,8 +15,12 @@ import json
 import random
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
-from datetime import datetime
-# ---------- CONFIG ----------
+import fnmatch
+import re
+from datetime import date, datetime
+
+
+# CONFIG
 COLLECTION_URL = "https://www.elitehubs.com/collections/processor"
 BASE_URL = "https://www.elitehubs.com"
 # Polite headers (fake_useragent fallback handled below)
@@ -26,7 +33,9 @@ except Exception:
 
 HEADERS = {"User-Agent": UA, "Accept-Language": "en-US,en;q=0.9"}
 DELAY_MIN, DELAY_MAX = 0.6, 1.2  # polite random delay between requests
-# --------------------------------
+
+PRUNE_DAYS = 7  # delete json files older than this (days)
+
 
 def ensure_dirs():
     """Return paths to Elite Hubs/data and Elite Hubs/async_snapshots (create if missing)."""
@@ -68,7 +77,13 @@ def parse_product_page_from_temp(temp_path, url):
         return None
 
     # Primary fields (OG meta tags are present on EliteHubs pages)
-    title = meta("og:title") or (soup.title.string.strip() if soup.title else None)
+    raw_title = meta("og:title") or (soup.title.string.strip() if soup.title else None)
+    # clean title: remove "Buy" and site suffix
+    if raw_title:
+        cleaned_title = raw_title.replace("Buy", "").replace("| EliteHubs.com", "").strip()
+    else:
+        cleaned_title = None
+
     image = meta("og:image:secure_url") or meta("og:image")
     price_amount = meta("og:price:amount")  # may be single current price
     currency = meta("og:price:currency")
@@ -78,13 +93,9 @@ def parse_product_page_from_temp(temp_path, url):
     discounted_price = None
 
     # Try to find price on page in visible HTML (fallback heuristics)
-    # Find any element that looks like a crossed original price or "compare-at" class
-    # These are best-effort; if not found, set original==discounted==price_amount
     if price_amount:
         discounted_price = price_amount
 
-    # Check for typical 'compare at' or 'price--compare' classes (common in themes)
-    # We'll inspect <span> tags that contain currency symbol and numbers
     text = soup.get_text(" ", strip=True)
     # simple stock detection
     stock_status = None
@@ -95,7 +106,6 @@ def parse_product_page_from_temp(temp_path, url):
         stock_status = "In Stock"
 
     # Try to detect an original price in the product page (best-effort)
-    # Look for elements that include "compare" or "original" keywords
     compare_candidates = soup.select("[class*='compare'], [class*='original'], [class*='was-price'], [class*='price--compare']")
     for el in compare_candidates:
         s = el.get_text(" ", strip=True)
@@ -111,7 +121,6 @@ def parse_product_page_from_temp(temp_path, url):
             if len(prices) >= 2:
                 original_price, discounted_price = prices[0], prices[1]
             else:
-                # single price on page
                 if not discounted_price:
                     discounted_price = prices[0]
                 if not original_price:
@@ -128,10 +137,10 @@ def parse_product_page_from_temp(temp_path, url):
         return x.strip() if isinstance(x, str) and x.strip() else None
 
     obj = {
-        "name": clean(title),
+        "name": clean(cleaned_title),
         "url": url,
         "image_url": clean(image),
-        "scraped_at": datetime.utcnow().isoformat(),
+        "scraped_at": datetime.now().astimezone().isoformat(),  # timezone-aware timestamp
         "price": {
             "original": clean(original_price),
             "discounted": clean(discounted_price),
@@ -157,6 +166,55 @@ def get_product_links_from_collection(collection_html_path, base_url=BASE_URL):
             links.append(full)
     return links
 
+def prune_old_jsons(data_dir, days=PRUNE_DAYS, keep_pattern="processors_*.json", keep_file=None, dry_run=False):
+    """
+    Delete JSON files based on the date encoded in the filename.
+    Expected filename pattern: <prefix>_YYYY-MM-DD.json
+    - days: files older than this (in days) will be removed
+    - keep_pattern: glob pattern to select candidate files
+    - keep_file: absolute path to the file that must not be removed (just-created file)
+    - dry_run: when True, print what would be removed but do not delete
+    """
+    date_re = re.compile(r"(\d{4}-\d{2}-\d{2})")
+    today = date.today()
+    cutoff_days = int(days)
+
+    removed = []
+
+    for fname in os.listdir(data_dir):
+        if not fnmatch.fnmatch(fname, keep_pattern):
+            continue
+
+        full = os.path.join(data_dir, fname)
+
+        if keep_file and os.path.abspath(full) == os.path.abspath(keep_file):
+            continue
+
+        # extract date from filename
+        m = date_re.search(fname)
+        if not m:
+            continue
+
+        try:
+            file_date = datetime.strptime(m.group(1), "%Y-%m-%d").date()
+        except ValueError:
+            continue
+
+        age_days = (today - file_date).days
+
+        if age_days > cutoff_days:
+            if dry_run:
+                print(f"[DRY RUN] Would delete {fname} (age {age_days} days)")
+            else:
+                try:
+                    os.remove(full)
+                    removed.append(fname)
+                except Exception:
+                    pass
+
+    if removed:
+        print("Deleted old files:", removed)
+
 def scrape_processors():
     data_dir, snaps_dir = ensure_dirs()
 
@@ -168,6 +226,14 @@ def scrape_processors():
     # Step B: get product links from snapshot
     product_links = get_product_links_from_collection(collection_snapshot)
     print("Found product links:", len(product_links))
+
+    # Delete the collection snapshot immediately if you don't want to keep it
+    try:
+        os.remove(collection_snapshot)
+        # print("Deleted collection snapshot:", collection_snapshot)
+    except Exception:
+        # if deletion fails, it's fine — just continue
+        pass
 
     results = []
     for i, p_url in enumerate(product_links, start=1):
@@ -183,7 +249,7 @@ def scrape_processors():
         except Exception as e:
             print("  ERROR scraping", p_url, ":", type(e).__name__, e)
         finally:
-            # delete temp file immediately
+            # delete temp file immediately (temp product HTML)
             if tmp and os.path.exists(tmp):
                 try:
                     os.remove(tmp)
@@ -193,14 +259,19 @@ def scrape_processors():
         # polite delay between product requests
         time.sleep(random.uniform(DELAY_MIN, DELAY_MAX))
 
-    # Step C: Save results to Elite Hubs/data/ (now uses data_dir from ensure_dirs)
+    # Step C: Save results to Elite Hubs/data/
     out_filename = f"processors_{datetime.now().strftime('%Y-%m-%d')}.json"
     out_path = os.path.join(data_dir, out_filename)
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2, ensure_ascii=False)
 
     print("Saved output to:", out_path)
+
+    # Step D: prune json files older than PRUNE_DAYS (keeps the file we just wrote)
+    prune_old_jsons(data_dir, days=PRUNE_DAYS, keep_pattern="processors_*.json", keep_file=out_path)
+
     return out_path
 
 if __name__ == "__main__":
     scrape_processors()
+
