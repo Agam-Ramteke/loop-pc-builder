@@ -1,3 +1,14 @@
+import sys
+import asyncio
+
+# On Windows, ensure we use the ProactorEventLoop which supports subprocesses
+if sys.platform.startswith("win"):
+    try:
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+    except AttributeError:
+        # If running on an older Python where this isn't available, ignore.
+        pass
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, BackgroundTasks, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -6,6 +17,7 @@ import uuid
 import os
 import shlex
 import sys
+import subprocess
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 
@@ -30,7 +42,7 @@ DATA_DIR = SCRAPERS_DIR / "data"
 # Jobs store
 JOBS: Dict[str, Dict[str, Any]] = {}
 # job structure: {
-#   "proc": Process handle,
+#   "proc": Process handle (subprocess.Popen),
 #   "status": "running"|"finished"|"failed"|"terminating",
 #   "lines": [..],
 #   "ws_clients": set(WebSocket objs),
@@ -97,13 +109,25 @@ async def start_job(req: StartJobRequest):
     # build command using current python executable so venv is respected
     cmd = [sys.executable, str(script_path)] + args
 
-    # Start subprocess
-    proc = await asyncio.create_subprocess_exec(
-        *cmd,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.STDOUT,
-        cwd=str(script_path.parent),
-    )
+    # Start subprocess using blocking Popen invoked in a thread (works on any event loop)
+    def _start_proc():
+        # Ensure the child process uses UTF-8 for stdout/stderr so emoji and other
+        # unicode characters don't raise encoding/decoding errors when writing to pipes.
+        env = os.environ.copy()
+        env["PYTHONIOENCODING"] = "utf-8"
+
+        return subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            cwd=str(script_path.parent),
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            env=env,
+        )
+
+    proc = await asyncio.to_thread(_start_proc)
 
     JOBS[job_id] = {
         "proc": proc,
@@ -113,37 +137,37 @@ async def start_job(req: StartJobRequest):
         "task": None,
     }
 
-    # spawn reader task
-    JOBS[job_id]["task"] = asyncio.create_task(_reader_task(job_id))
+    # spawn reader task that polls the Popen stdout using threads
+    JOBS[job_id]["task"] = asyncio.create_task(_poll_proc_stdout(job_id))
 
     return {"job_id": job_id, "cmd": " ".join(shlex.quote(p) for p in cmd)}
 
 
-async def _reader_task(job_id: str):
-    """Reads subprocess stdout line by line and broadcasts to any connected websockets."""
+async def _poll_proc_stdout(job_id: str):
+    """Polls a subprocess.Popen stdout in a thread-safe way and broadcasts lines."""
     entry = JOBS.get(job_id)
     if not entry:
         return
     proc = entry["proc"]
     try:
         while True:
-            line = await proc.stdout.readline()
+            # read a line in a thread so we don't block the event loop
+            line = await asyncio.to_thread(proc.stdout.readline)
             if not line:
                 break
-            text = line.decode(errors="ignore").rstrip()
-            # append to in-memory buffer (cap to last 500 lines)
+            text = line.rstrip("
+
+")
             entry["lines"].append(text)
             if len(entry["lines"]) > 500:
                 entry["lines"] = entry["lines"][-500:]
-            # broadcast to websockets
             await _broadcast_job_line(job_id, text)
 
-        await proc.wait()
-        rc = proc.returncode
+        # wait for process to exit
+        rc = await asyncio.to_thread(proc.wait)
         entry["status"] = "finished" if rc == 0 else f"failed:{rc}"
         await _broadcast_job_line(job_id, f"__PROCESS_EXIT__:{entry['status']}")
     except asyncio.CancelledError:
-        # if canceled, try to terminate process
         try:
             proc.terminate()
         except Exception:
@@ -154,7 +178,13 @@ async def _reader_task(job_id: str):
         entry["status"] = f"error:{e}"
         await _broadcast_job_line(job_id, f"__ERROR__:{e}")
     finally:
-        # cleanup websockets set (close connections)
+        # close any remaining stdout
+        try:
+            if proc.stdout:
+                proc.stdout.close()
+        except Exception:
+            pass
+        # close websockets
         for ws in list(entry["ws_clients"]):
             try:
                 await ws.close()
@@ -205,7 +235,7 @@ async def stop_job(job_id: str):
     if not info:
         raise HTTPException(status_code=404, detail="job not found")
     proc = info.get("proc")
-    if proc and proc.returncode is None:
+    if proc and getattr(proc, "returncode", None) is None:
         try:
             proc.terminate()
             info["status"] = "terminating"
@@ -250,7 +280,7 @@ async def shutdown_event():
         task = info.get("task")
         if task and not task.done():
             task.cancel()
-        if proc and proc.returncode is None:
+        if proc and getattr(proc, "returncode", None) is None:
             try:
                 proc.terminate()
             except Exception:
