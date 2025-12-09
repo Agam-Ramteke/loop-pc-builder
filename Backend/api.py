@@ -17,9 +17,13 @@ if sys.platform.startswith("win"):
     except AttributeError:
         pass
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Query, Header
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Query, Header, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from typing import List, Optional
+from pymongo import MongoClient
+import csv
+import io
 
 app = FastAPI(title="Scraper Runner API")
 
@@ -51,6 +55,17 @@ _JOB_SEMAPHORE = asyncio.Semaphore(MAX_CONCURRENT_JOBS)
 
 # simple token auth (optional; set API_KEY in env to enable)
 API_KEY = os.getenv("API_KEY")  # If None, auth is disabled in dev
+
+# MongoDB connection
+MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
+DB_NAME = os.getenv("DB_NAME", "PC_Parts")
+try:
+    mongo_client = MongoClient(MONGO_URI)
+    mongo_db = mongo_client[DB_NAME]
+except Exception as e:
+    print(f"Warning: Could not connect to MongoDB: {e}")
+    mongo_client = None
+    mongo_db = None
 
 # Jobs store (in-memory index). Metadata + logs are persisted.
 JOBS: Dict[str, Dict[str, Any]] = {}
@@ -409,6 +424,84 @@ async def websocket_job_logs(websocket: WebSocket, job_id: str):
         info["ws_clients"].discard(websocket)
 
 
+# --- MongoDB Collections Endpoints ---
+@app.get("/api/collections", response_model=List[str])
+async def list_collections():
+    """Return list of collection names in the database."""
+    if mongo_db is None:
+        raise HTTPException(status_code=500, detail="MongoDB not connected")
+    try:
+        names = mongo_db.list_collection_names()
+        return names
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/collections/{collection_name}")
+async def get_collection_documents(
+    collection_name: str,
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=1000),
+    q: Optional[str] = Query(None),
+):
+    """Return paginated documents from a collection with optional simple search."""
+    if mongo_db is None:
+        raise HTTPException(status_code=500, detail="MongoDB not connected")
+    col = mongo_db[collection_name]
+    if col is None:
+        raise HTTPException(status_code=404, detail="Collection not found")
+
+    query = {}
+    if q:
+        # basic search across name and url fields (case-insensitive)
+        query = {"$or": [{"name": {"$regex": q, "$options": "i"}}, {"url": {"$regex": q, "$options": "i"}}]}
+
+    skip = (page - 1) * limit
+    try:
+        cursor = col.find(query).skip(skip).limit(limit)
+        docs = []
+        for d in cursor:
+            d["_id"] = str(d["_id"])
+            docs.append(d)
+        total = col.count_documents(query)
+        return {"collection": collection_name, "page": page, "limit": limit, "total": total, "docs": docs}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/collections/{collection_name}/csv")
+async def export_collection_csv(collection_name: str, q: Optional[str] = Query(None)):
+    """Return CSV attachment for the collection (top-level fields only)."""
+    if mongo_db is None:
+        raise HTTPException(status_code=500, detail="MongoDB not connected")
+    col = mongo_db[collection_name]
+    if col is None:
+        raise HTTPException(status_code=404, detail="Collection not found")
+
+    query = {}
+    if q:
+        query = {"$or": [{"name": {"$regex": q, "$options": "i"}}, {"url": {"$regex": q, "$options": "i"}}]}
+
+    cursor = col.find(query)
+
+    output = io.StringIO()
+    writer = None
+    for doc in cursor:
+        doc["_id"] = str(doc["_id"])
+        if writer is None:
+            headers = list(doc.keys())
+            writer = csv.DictWriter(output, fieldnames=headers, extrasaction="ignore")
+            writer.writeheader()
+        writer.writerow(doc)
+
+    csv_bytes = output.getvalue().encode("utf-8")
+    return Response(
+        content=csv_bytes,
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={collection_name}.csv", "Content-Length": str(len(csv_bytes))},
+    )
+
+
 @app.on_event("shutdown")
 async def shutdown_event():
     for jid, info in list(JOBS.items()):
@@ -421,3 +514,8 @@ async def shutdown_event():
                 proc.terminate()
             except Exception:
                 pass
+    if mongo_client:
+        try:
+            mongo_client.close()
+        except Exception:
+            pass
