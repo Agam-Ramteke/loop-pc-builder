@@ -1,4 +1,3 @@
-# --- common_functions.py ---
 import os
 import json
 import requests
@@ -14,6 +13,8 @@ from bs4 import BeautifulSoup
 from fake_useragent import UserAgent
 import aiohttp
 import asyncio
+from urllib.parse import urljoin, urlparse
+from bson import ObjectId
 
 # Configuration defaults
 DEFAULT_USER_AGENT = "Mozilla/5.0 (compatible; Scraper/1.0)"
@@ -173,6 +174,61 @@ async def download_with_retry(session: aiohttp.ClientSession, url: str, folder: 
     return None
 
 
+# Image extraction helper
+def extract_image_url_from_soup(soup: BeautifulSoup, base_url: Optional[str] = None) -> Optional[str]:
+    """
+    Try multiple strategies to find the best image URL from a product page soup.
+    Returns absolute URL if base_url provided or resolvable.
+    """
+    # 1) Open Graph
+    og = soup.select_one('meta[property="og:image"], meta[name="og:image"]')
+    if og and og.get("content"):
+        return urljoin(base_url or "", og["content"].strip())
+
+    # 2) JSON-LD schema.org "image"
+    for script in soup.select('script[type="application/ld+json"]'):
+        try:
+            j = json.loads(script.string or "{}")
+            # j might be a list or dict
+            if isinstance(j, dict):
+                img = j.get("image") or (j.get("mainEntityOfPage") or {}).get("image")
+                if isinstance(img, str):
+                    return urljoin(base_url or "", img)
+                if isinstance(img, list) and img:
+                    return urljoin(base_url or "", img[0])
+            elif isinstance(j, list) and j:
+                # scan list for image fields
+                for entry in j:
+                    if isinstance(entry, dict) and entry.get("image"):
+                        img = entry.get("image")
+                        if isinstance(img, str):
+                            return urljoin(base_url or "", img)
+                        if isinstance(img, list) and img:
+                            return urljoin(base_url or "", img[0])
+        except Exception:
+            continue
+
+    # 3) Common image attributes (data-src, src, lazy attributes)
+    img_attrs = ("data-src", "data-lazy-src", "data-cfsrc", "src")
+    for attr in img_attrs:
+        tag = soup.select_one(f'img[{attr}]')
+        if tag and tag.get(attr):
+            return urljoin(base_url or "", tag.get(attr).strip())
+
+    # 4) srcset -> pick first candidate
+    tag = soup.select_one("img[srcset], img")
+    if tag:
+        srcset = tag.get("srcset", "")
+        if srcset:
+            first = srcset.split(",")[0].strip().split(" ")[0]
+            if first:
+                return urljoin(base_url or "", first)
+        if tag.get("src"):
+            return urljoin(base_url or "", tag.get("src"))
+
+    return None
+
+
 # Image downloaders
 def download_image(image_url: str, product_url: str, folder: str,
                    collection=None, db_filter: dict | None = None,
@@ -197,7 +253,9 @@ def download_image(image_url: str, product_url: str, folder: str,
         return filepath
 
     try:
-        resp = requests.get(image_url, headers={"User-Agent": UserAgent().random if UserAgent else DEFAULT_USER_AGENT},
+        # normalize URL
+        norm = image_url if image_url.startswith("http") else "https://" + image_url.lstrip("//")
+        resp = requests.get(norm, headers={"User-Agent": UserAgent().random if UserAgent else DEFAULT_USER_AGENT},
                             timeout=timeout)
         resp.raise_for_status()
         img_bytes = resp.content
@@ -243,7 +301,9 @@ async def async_download_image(session: aiohttp.ClientSession, image_url: str, p
 
     try:
         timeout_obj = aiohttp.ClientTimeout(total=timeout)
-        async with session.get(image_url, timeout=timeout_obj) as resp:
+        # normalize url
+        norm = image_url if image_url.startswith("http") else "https://" + image_url.lstrip("//")
+        async with session.get(norm, timeout=timeout_obj) as resp:
             resp.raise_for_status()
             img_bytes = await resp.read()
 
@@ -274,6 +334,7 @@ def _write_binary_file(path: str, data: bytes) -> None:
 
 # Mongo helpers
 
+
 def upsert_product(data, db_or_conn, db_name=None, collection_name=None, unique_keys=("url",), verbose=False):
     """
     Flexible upsert that accepts either a MongoClient instance or connection string.
@@ -295,7 +356,6 @@ def upsert_product(data, db_or_conn, db_name=None, collection_name=None, unique_
     if verbose:
         print(("🔁 Updated" if result.matched_count else "🆕 Inserted"), data.get("name", "<unknown>"))
     return "updated" if result.matched_count else "inserted"
-
 
 
 # Cleanup helpers
@@ -417,9 +477,19 @@ def parse_product_page(html_file_path: str, product_url: Optional[str] = None,
     # --- Image download (synchronous) ---
     local_image_path = None
     try:
+        # If caller didn't provide image_url, try to extract from page HTML
+        resolved_image_url = image_url
+        if not resolved_image_url:
+            try:
+                extracted = extract_image_url_from_soup(soup, base_url=product_url)
+                if extracted:
+                    resolved_image_url = extracted
+            except Exception:
+                resolved_image_url = None
+
         images_folder = os.path.join(os.path.dirname(html_file_path), "images")
         local_image_path = download_image(
-            image_url,
+            resolved_image_url,
             product_url=product_url,
             folder=images_folder,
             collection=collection,
@@ -442,13 +512,6 @@ def parse_product_page(html_file_path: str, product_url: Optional[str] = None,
 
     return product_data
 
-import os
-import asyncio
-import aiohttp
-from pymongo import MongoClient
-from fake_useragent import UserAgent
-from urllib.parse import urlparse
-from bson import ObjectId
 
 DEBUG = True  # match your global debug flag
 
@@ -485,15 +548,37 @@ async def async_recover_missing_images(conn_string: str, db_name: str, image_dir
                     if not image_path or not os.path.exists(image_path):
                         total_missing += 1
 
+                        # If image_url missing, try to fetch product page and extract
+                        if not image_url and url:
+                            if DEBUG:
+                                print(f"🔎 No image_url for {name}, attempting to parse product page for image");
+                            try:
+                                timeout_obj = aiohttp.ClientTimeout(total=20)
+                                async with session.get(url, headers={"User-Agent": ua.random}, timeout=timeout_obj) as resp:
+                                    resp.raise_for_status()
+                                    text = await resp.text()
+                                page_soup = BeautifulSoup(text, "html.parser")
+                                extracted = extract_image_url_from_soup(page_soup, base_url=url)
+                                if extracted:
+                                    image_url = extracted
+                                    if DEBUG:
+                                        print(f"🔗 Extracted image_url from product page: {image_url}")
+                            except Exception as e:
+                                if DEBUG:
+                                    print(f"⚠️ Failed to fetch product page for {name}: {e}")
+
                         if not image_url:
                             if DEBUG:
                                 print(f"⚠️ Missing image URL for {name}")
                             return
 
                         # Build new image filename
-                        parsed = urlparse(url)
-                        safe_name = parsed.path.replace("/", "_").strip("_")
-                        ext = os.path.splitext(image_url.split("?")[0])[1] or ".jpg"
+                        parsed = urlparse(url or "")
+                        base = parsed.path.replace("/", "_").strip("_") or safe_filename(name or str(doc.get("_id")))
+
+                        # try to detect extension from image_url or content-type later
+                        ext = os.path.splitext(image_url.split("?")[0])[1] or ""
+                        safe_name = safe_filename(base)
                         new_filename = f"{safe_name}{ext}"
                         new_path = os.path.join(image_dir, new_filename)
 
@@ -502,16 +587,26 @@ async def async_recover_missing_images(conn_string: str, db_name: str, image_dir
                         # Download asynchronously
                         headers = {"User-Agent": ua.random}
                         try:
-                            async with session.get(image_url, headers=headers, timeout=20) as resp:
+                            norm = image_url if image_url.startswith("http") else "https://" + image_url.lstrip("//")
+                            timeout_obj = aiohttp.ClientTimeout(total=30)
+                            async with session.get(norm, headers=headers, timeout=timeout_obj) as resp:
                                 resp.raise_for_status()
                                 content = await resp.read()
-                            await asyncio.to_thread(open(new_path, "wb").write, content)
+                                # if extension not present, infer from content-type
+                                if not ext:
+                                    ct = resp.headers.get("content-type", "")
+                                    if "/" in ct:
+                                        guessed = ct.split("/")[-1].split(";")[0]
+                                        guessed_ext = "." + (guessed if guessed not in ("plain","html") else "jpg")
+                                        new_path = os.path.join(image_dir, f"{safe_name}{guessed_ext}")
+                            # write file
+                            await asyncio.to_thread(_write_binary_file, new_path, content)
 
                             # Update DB document
                             await asyncio.to_thread(
                                 db[collection_name].update_one,
                                 {"_id": doc["_id"]},
-                                {"$set": {"image_path": new_path}}
+                                {"$set": {"image_path": new_path, "image_url": image_url}}
                             )
                             total_fixed += 1
 

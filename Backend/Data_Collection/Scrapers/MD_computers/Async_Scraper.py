@@ -1,4 +1,3 @@
-# --- Async_Scraper.py (headless)
 import os
 import json
 import glob
@@ -63,7 +62,7 @@ async def process_product_async(loop, semaphore, db, collection_name, product_it
                 db[collection_name],
             )
 
-            # Upsert to MongoDB (blocking I/O)
+            # Ensure we store collection name on upsert call
             await loop.run_in_executor(
                 None,
                 cf.upsert_product,
@@ -124,8 +123,14 @@ async def run_files(file_paths, limit=None, dry_run=False):
         "cpu-cooler": "CpuCoolers",
     }
 
-    ua = UserAgent()
-    headers = {"User-Agent": ua.random}
+    # safe fake-useragent usage with fallback
+    try:
+        ua = UserAgent()
+        ua_string = ua.random
+    except Exception:
+        ua_string = cf.DEFAULT_USER_AGENT if hasattr(cf, 'DEFAULT_USER_AGENT') else "Mozilla/5.0"
+
+    headers = {"User-Agent": ua_string}
 
     async with aiohttp.ClientSession(headers=headers) as session:
         for file_path in file_paths:
@@ -190,13 +195,23 @@ async def run_files(file_paths, limit=None, dry_run=False):
             print(f"🌐 Downloading {len(stale_items)} snapshots concurrently...")
 
             # ---------------- Async download snapshots ----------------
-            download_tasks = [
-                cf.download_with_retry(
-                    session, item["url"], SNAPSHOT_DIR, prefix=base_name, retries=RETRY_ATTEMPTS
-                )
-                for item in stale_items
-            ]
-            snapshots = await asyncio.gather(*download_tasks)
+            download_tasks = []
+            for item in stale_items:
+                u = item.get("url")
+                if not u:
+                    download_tasks.append(asyncio.sleep(0, result=None))
+                else:
+                    download_tasks.append(
+                        cf.download_with_retry(
+                            session, u, SNAPSHOT_DIR, prefix=base_name, retries=RETRY_ATTEMPTS
+                        )
+                    )
+
+            try:
+                snapshots = await asyncio.gather(*download_tasks)
+            except Exception as e:
+                print(f"❌ Error during snapshot downloads: {e}")
+                snapshots = [None] * len(download_tasks)
 
             # ---------------- Parse + DB upserts ----------------
             tasks = []
@@ -247,7 +262,7 @@ async def run_files(file_paths, limit=None, dry_run=False):
                 print(f"\n🔁 Retrying {len(failed_items)} failed downloads...\n")
                 retry_downloads = [
                     cf.download_with_retry(
-                        session, item["url"], SNAPSHOT_DIR, prefix=base_name, retries=5
+                        session, item.get("url"), SNAPSHOT_DIR, prefix=base_name, retries=5
                     )
                     for item in failed_items
                 ]
@@ -292,7 +307,7 @@ async def run_files(file_paths, limit=None, dry_run=False):
         cleanup_tasks = [
             asyncio.to_thread(os.remove, os.path.join(SNAPSHOT_DIR, f))
             for f in os.listdir(SNAPSHOT_DIR)
-            if f.endswith(".html")
+            if f.endswith(".html") and os.path.exists(os.path.join(SNAPSHOT_DIR, f))
         ]
         await asyncio.gather(*cleanup_tasks, return_exceptions=True)
     except Exception as e:
