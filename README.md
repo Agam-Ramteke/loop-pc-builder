@@ -85,7 +85,7 @@ python Async_Scraper.py --all              # process all JSONs in data/
 EliteHubs processors:
 ```bash
 cd "Backend/Data_Collection/Scrapers/Elite Hubs"
-python elitehubs.py
+python Bulk_data.py
 ```
 
 ---
