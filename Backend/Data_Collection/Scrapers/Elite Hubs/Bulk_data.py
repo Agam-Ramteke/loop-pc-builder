@@ -18,6 +18,9 @@ import fnmatch
 import re
 from datetime import date, datetime
 import sys
+from rich.console import Console
+from rich.table import Table
+from rich import box
 
 # CONFIG
 # Define collections here: key is filename prefix, value is collection URL
@@ -46,8 +49,10 @@ except Exception:
 HEADERS = {"User-Agent": UA, "Accept-Language": "en-US,en;q=0.9"}
 DELAY_MIN, DELAY_MAX = 0.6, 1.2  # polite random delay between requests
 PRUNE_DAYS = 7  # delete json files older than this (days)
-MAX_PAGES = 20  # max pagination pages to check for a collection
+MAX_PAGES = 30  # max pagination pages to check for a collection
 
+# ---- SCRAPING SUMMARY ----
+SCRAPE_SUMMARY = {}
 
 def ensure_dirs():
     base = os.path.abspath(os.path.dirname(__file__))  # Elite Hubs folder
@@ -156,53 +161,30 @@ def parse_product_page_from_temp(temp_path, url):
     return obj
 
 
-def get_product_links_from_collection(collection_html_path, base_url=BASE_URL):
-    with open(collection_html_path, "r", encoding="utf-8") as f:
-        soup = BeautifulSoup(f.read(), "lxml")
+def get_product_links_shopify_json(collection_url):
     links = []
-    for a in soup.select("a[href*='/products/']"):
-        href = a.get("href")
-        if not href:
-            continue
-        full = urljoin(base_url, href.split("?")[0])
-        if full not in links:
-            links.append(full)
+    page = 1
+
+    while True:
+        json_url = f"{collection_url}/products.json?limit=250&page={page}"
+        r = requests.get(json_url, headers=HEADERS, timeout=20)
+
+        if r.status_code != 200:
+            break
+
+        data = r.json()
+        products = data.get("products", [])
+
+        if not products:
+            break
+
+        for product in products:
+            links.append(f"{BASE_URL}/products/{product['handle']}")
+
+        page += 1
+        time.sleep(random.uniform(0.3, 0.6))
+
     return links
-
-
-def collect_collection_pages(prefix, collection_url, snaps_dir):
-    """Download paginated collection pages until no products found or MAX_PAGES reached.
-    Returns list of snapshot paths saved.
-    """
-    snaps = []
-    prev_count = 0
-    for page in range(1, MAX_PAGES + 1):
-        page_url = f"{collection_url}?page={page}"
-        snap_path = os.path.join(snaps_dir, f"{prefix}_collection_page{page}_{datetime.now().strftime('%Y%m%d%H%M%S')}.html")
-        try:
-            download_to_file(page_url, snap_path)
-        except Exception as e:
-            # stop on network error
-            try:
-                if os.path.exists(snap_path):
-                    os.remove(snap_path)
-            except Exception:
-                pass
-            break
-        links = get_product_links_from_collection(snap_path)
-        if not links:
-            # remove empty snapshot
-            try:
-                os.remove(snap_path)
-            except Exception:
-                pass
-            break
-        snaps.append(snap_path)
-        # small heuristic: if this page returned same number of links as previous and page>1, continue anyway up to MAX_PAGES
-        prev_count = len(links)
-        time.sleep(random.uniform(0.4, 0.9))
-    return snaps
-
 
 # filename-date based pruning (deletes files like '<prefix>_YYYY-MM-DD.json' older than days)
 def prune_old_jsons(data_dir, prefix, days=PRUNE_DAYS, keep_file=None, dry_run=False):
@@ -211,7 +193,7 @@ def prune_old_jsons(data_dir, prefix, days=PRUNE_DAYS, keep_file=None, dry_run=F
     cutoff_days = int(days)
     removed = []
     pattern = f"{prefix}_*.json"
-    print(f"Pruning files matching {pattern} older than {cutoff_days} days (dry_run={dry_run})")
+    #print(f"Pruning files matching {pattern} older than {cutoff_days} days (dry_run={dry_run})")
     for fname in os.listdir(data_dir):
         if not fnmatch.fnmatch(fname, pattern):
             continue
@@ -242,60 +224,46 @@ def prune_old_jsons(data_dir, prefix, days=PRUNE_DAYS, keep_file=None, dry_run=F
 
 
 def scrape_one_collection(prefix, collection_url, data_dir, snaps_dir):
-    """Scrape one collection and save <prefix>_YYYY-MM-DD.json"""
-    # collect paginated snapshots
-    snaps = collect_collection_pages(prefix, collection_url, snaps_dir)
-    # if pagination returned nothing (maybe collection has single page without ?page=), fallback to single download
-    if not snaps:
-        snapshot_name = os.path.join(snaps_dir, f"{prefix}_collection_{datetime.now().strftime('%Y-%m-%d_%H%M%S')}.html")
-        download_to_file(collection_url, snapshot_name)
-        snaps = [snapshot_name]
+    """Scrape one collection using Shopify JSON and save <prefix>_YYYY-MM-DD.json"""
 
-    # gather product links from all snapshots
-    all_links = []
-    for snap in snaps:
-        links = get_product_links_from_collection(snap)
-        for L in links:
-            if L not in all_links:
-                all_links.append(L)
-        # delete snapshot after extracting
-        try:
-            os.remove(snap)
-        except Exception:
-            pass
-
+    # ✅ GET ALL PRODUCT LINKS FROM SHOPIFY JSON
+    all_links = get_product_links_shopify_json(collection_url)
     print(f"[{prefix}] Found product links:", len(all_links))
 
     results = []
+
     for i, p_url in enumerate(all_links, start=1):
         print(f"[{prefix}] [{i}/{len(all_links)}] Processing:", p_url)
         tmp = None
+
         try:
             tmp = download_temp(p_url)
             item = parse_product_page_from_temp(tmp, p_url)
             results.append(item)
-            print(f"  -> scraped: {item['name']}")
+
         except Exception as e:
-            print("  ERROR scraping", p_url, ":", type(e).__name__, e)
+            pass#print("  ERROR scraping", p_url, ":", type(e).__name__, e)
+
         finally:
             if tmp and os.path.exists(tmp):
-                try:
-                    os.remove(tmp)
-                except Exception:
-                    pass
+                os.remove(tmp)
+
         time.sleep(random.uniform(DELAY_MIN, DELAY_MAX))
 
     out_filename = f"{prefix}_{datetime.now().strftime('%Y-%m-%d')}.json"
     out_path = os.path.join(data_dir, out_filename)
+
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2, ensure_ascii=False)
-    print(f"[{prefix}] Saved output to:", out_path)
 
-    # prune old files for this prefix only (keeps the one we just wrote)
     prune_old_jsons(data_dir, prefix, days=PRUNE_DAYS, keep_file=out_path)
 
-    return out_path
+    SCRAPE_SUMMARY[prefix] = {
+        "items": len(results),
+        "last_modified": datetime.now().strftime("%Y-%m-%d %H:%M")
+    }
 
+    return out_path
 
 def scrape_all_collections(selected_prefix=None):
     data_dir, snaps_dir = ensure_dirs()
@@ -305,6 +273,35 @@ def scrape_all_collections(selected_prefix=None):
             scrape_one_collection(prefix, url, data_dir, snaps_dir)
         except Exception as e:
             print("Failed scraping", prefix, url, type(e).__name__, e)
+
+    show_summary_table()
+
+
+def show_summary_table():
+    from rich.console import Console
+    from rich.table import Table
+    from rich import box
+
+    console = Console()
+
+    table = Table(
+        title="📦 Scraping Summary (New)",
+        box=box.SQUARE,
+        show_lines=True
+    )
+
+    table.add_column("Category", style="cyan", justify="left")
+    table.add_column("Items", style="magenta", justify="right")
+    table.add_column("Last Modified", style="green", justify="center")
+
+    for prefix, info in SCRAPE_SUMMARY.items():
+        table.add_row(
+            prefix.replace("_", "-").title(),
+            str(info["items"]),
+            info["last_modified"]
+        )
+
+    console.print(table)
 
 
 if __name__ == "__main__":
