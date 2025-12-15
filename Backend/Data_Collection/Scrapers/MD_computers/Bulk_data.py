@@ -10,9 +10,6 @@ from pathlib import Path
 from rich.table import Table
 from rich.console import Console
 from rich.theme import Theme
-import argparse
-import signal
-import sys
 import common_functions as cf
 
 # --- SETTINGS ---
@@ -29,21 +26,12 @@ URLS = [
     "https://mdcomputers.in/catalog/cpu-cooler"
 ]
 
-
 HEADERS = {"User-Agent": UserAgent().random}
 os.makedirs(DATA_DIR, exist_ok=True)
 
 # --- Console Setup ---
 console = Console(theme=Theme({"repr.str": "none"}), color_system="auto", force_terminal=False)
 SUPPORTS_COLOR = console.is_terminal
-
-_shutdown = False
-
-
-def _on_term(signum, frame):
-    global _shutdown
-    _shutdown = True
-    print("\nReceived shutdown signal — will stop after current page.")
 
 
 # -------------------------- PARSER --------------------------
@@ -102,18 +90,13 @@ async def fetch_page(session, url):
 
 
 # -------------------------- SCRAPER --------------------------
-async def scrape_category(session, base_url, page_limit=None):
-    """Scrape all pages in a category and return items list and metadata."""
-    global _shutdown
+async def scrape_category(session, base_url):
+    """Scrape all pages in a category and save to JSON."""
     category_name = Path(urlparse(base_url).path).name
     all_items = []
     page = 1
 
     while True:
-        if _shutdown:
-            print("Shutdown requested — stopping scraping this category.")
-            break
-
         page_url = base_url if page == 1 else f"{base_url}?page={page}"
         html = await fetch_page(session, page_url)
         if not html:
@@ -131,11 +114,13 @@ async def scrape_category(session, base_url, page_limit=None):
             break
 
         page += 1
-        if page_limit and page > page_limit:
-            break
         await asyncio.sleep(0.6)
 
-    return category_name, all_items
+    if all_items:
+        cf.save_json(all_items, DATA_DIR, prefix=category_name)
+        return category_name, len(all_items)
+    else:
+        return category_name, 0
 
 
 # -------------------------- SUMMARY TABLE --------------------------
@@ -158,15 +143,13 @@ def show_summary_table(title, data_dict):
     console.print(table)
 
 
-# -------------------------- Core runner --------------------------
-async def run_categories(urls, data_dir=DATA_DIR, skip_existing=True, page_limit=None):
-    """Run scraping for given category URLs. Returns summary dict."""
-    global _shutdown
+# -------------------------- MAIN --------------------------
+async def main():
     today = datetime.now().strftime("%Y-%m-%d")
 
     existing_files = {
         "_".join(f.split("_")[:-1]): f
-        for f in os.listdir(data_dir)
+        for f in os.listdir(DATA_DIR)
         if f.endswith(".json") and today in f
     }
 
@@ -174,34 +157,29 @@ async def run_categories(urls, data_dir=DATA_DIR, skip_existing=True, page_limit
 
     async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(limit=10)) as session:
         tasks = []
-        for link in urls:
+        for link in URLS:
             cat = Path(urlparse(link).path).name
-            if skip_existing and cat in existing_files:
+            if cat in existing_files:
                 continue
-            tasks.append(asyncio.create_task(scrape_category(session, link, page_limit=page_limit)))
+            tasks.append(asyncio.create_task(scrape_category(session, link)))
 
         if tasks:
-            print(f"\n🚀 Starting {len(tasks)} async category scrapes...\n")
+            console.print(f"\n🚀 Starting {len(tasks)} async category scrapes...\n")
             results = await asyncio.gather(*tasks)
 
-            for cat, items in results:
-                if _shutdown:
-                    print("Shutdown requested — aborting saving of remaining categories.")
-                    break
-                if items:
-                    # save JSON via common_functions helper
-                    cf.save_json(items, data_dir, prefix=cat)
-                    scraped_today[cat] = {"count": len(items), "date": datetime.now().strftime("%Y-%m-%d %H:%M")}
+            for cat, count in results:
+                scraped_today[cat] = {
+                    "count": count,
+                    "date": datetime.now().strftime("%Y-%m-%d %H:%M")
+                }
 
-            if scraped_today:
-                show_summary_table("📦 Scraping Summary (New)", scraped_today)
+            show_summary_table("📦 Scraping Summary (New)", scraped_today)
 
         else:
-            # Nothing to scrape — show existing data summary
             existing_data = {}
-            for f in sorted(os.listdir(data_dir)):
+            for f in sorted(os.listdir(DATA_DIR)):
                 if f.endswith(".json"):
-                    file_path = os.path.join(data_dir, f)
+                    file_path = os.path.join(DATA_DIR, f)
                     try:
                         with open(file_path, "r", encoding="utf-8") as jf:
                             data = json.load(jf)
@@ -219,35 +197,5 @@ async def run_categories(urls, data_dir=DATA_DIR, skip_existing=True, page_limit
                 print("⚠️ No existing data found in directory.\n")
 
 
-# -------------------------- CLI wrapper --------------------------
-def cli_entry():
-    parser = argparse.ArgumentParser(description="MD_computers bulk scraper (headless)")
-    parser.add_argument("--categories", "-c", help="Comma-separated category slugs to scrape (e.g. processor,ram)")
-    parser.add_argument("--all", action="store_true", help="Scrape all configured categories (default)")
-    parser.add_argument("--skip-existing", dest="skip_existing", action="store_true", default=True,
-                        help="Skip categories already scraped today (default)")
-    parser.add_argument("--no-skip", dest="skip_existing", action="store_false", help="Do not skip existing files")
-    parser.add_argument("--page-limit", type=int, default=None, help="Limit number of pages per category (for testing)")
-    args = parser.parse_args()
-
-    signal.signal(signal.SIGINT, _on_term)
-    signal.signal(signal.SIGTERM, _on_term)
-
-    if args.categories:
-        requested = [s.strip() for s in args.categories.split(",") if s.strip()]
-        urls = [u for u in URLS if Path(urlparse(u).path).name in requested]
-        if not urls:
-            print("No matching categories found for those slugs.")
-            return
-    else:
-        urls = URLS if args.all or not args.categories else []
-
-    try:
-        asyncio.run(run_categories(urls, data_dir=DATA_DIR, skip_existing=args.skip_existing, page_limit=args.page_limit))
-    except Exception as e:
-        print(f"Fatal error during run: {e}", file=sys.stderr)
-        sys.exit(1)
-
-
 if __name__ == "__main__":
-    cli_entry()
+    asyncio.run(main())

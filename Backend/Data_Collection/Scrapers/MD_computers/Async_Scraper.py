@@ -74,7 +74,7 @@ async def process_product_async(loop, semaphore, db, collection_name, product_it
 
             if DEBUG:
                 print(f"✅ Processed: {product_data.get('name', url)}")
-            return f"✅ {url}"
+            return f"{url}"
 
         except Exception as e:
             if DEBUG:
@@ -91,9 +91,9 @@ async def process_product_async(loop, semaphore, db, collection_name, product_it
                         print(f"⚠️ Could not remove snapshot {snapshot_path}: {e}")
 
 
-# -----------------------------
+
 # Core runner (headless) - processes given file paths
-# -----------------------------
+
 async def run_files(file_paths, limit=None, dry_run=False):
     """Process a list of snapshot JSON files (absolute or relative paths).
 
@@ -192,7 +192,7 @@ async def run_files(file_paths, limit=None, dry_run=False):
                 print("All products are up to date.")
                 continue
 
-            print(f"🌐 Downloading {len(stale_items)} snapshots concurrently...")
+            print(f"\n🌐 Downloading {len(stale_items)} snapshots concurrently...")
 
             # ---------------- Async download snapshots ----------------
             download_tasks = []
@@ -302,7 +302,7 @@ async def run_files(file_paths, limit=None, dry_run=False):
                 break
 
     # ---------------- Cleanup ----------------
-    print("\n🧹 Cleaning up snapshot files...")
+    print("\n Cleaning up snapshot files...")
     try:
         cleanup_tasks = [
             asyncio.to_thread(os.remove, os.path.join(SNAPSHOT_DIR, f))
@@ -326,7 +326,7 @@ async def run_files(file_paths, limit=None, dry_run=False):
     except Exception as e:
         print(f"Error during storage cleanup: {e}")
 
-    print("\n🎉 All selected JSON files processed successfully!\n")
+    print("\n____All selected JSON files processed successfully!____\n")
 
 
 # -----------------------------
