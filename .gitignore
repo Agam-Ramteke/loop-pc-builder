@@ -87,4 +87,3 @@ async_snapshots/
 *.7z
 *.sql
 *.sqlite3
-*.db
