@@ -333,30 +333,55 @@ async def run_files(file_paths, limit=None, dry_run=False):
 # CLI wrapper: argparse + graceful shutdown
 # -----------------------------
 def cli_entry():
-    parser = argparse.ArgumentParser(description="MD_computers async scraper (headless)")
-    parser.add_argument("--file", "-f", help="JSON filename inside data/ to process (e.g. md_computers_2025-12-08.json)")
-    parser.add_argument("--all", action="store_true", help="Process all JSON files in data/")
-    parser.add_argument("--limit", type=int, default=None, help="Limit items per file")
-    parser.add_argument("--dry", dest="dry", action="store_true", help="Dry run: parse only, no DB upserts")
-    args = parser.parse_args()
-
     signal.signal(signal.SIGINT, _on_term)
     signal.signal(signal.SIGTERM, _on_term)
 
-    if args.all:
-        files = sorted(glob.glob(os.path.join(DATA_DIR, "*.json")))
-    elif args.file:
-        files = [os.path.join(DATA_DIR, args.file)]
-    else:
-        # default: process all files
-        files = sorted(glob.glob(os.path.join(DATA_DIR, "*.json")))
-
+    # List JSON files
+    files = sorted(glob.glob(os.path.join(DATA_DIR, "*.json")))
+    
     if not files:
-        print(f"No JSON files found in {DATA_DIR} to process.")
+        print(f"No JSON files found in {DATA_DIR}.")
         return
 
+    print("\n" + "-"*40)
+    print("   AVAILABLE SNAPSHOT FILES")
+    print("-"*40)
+    for i, f in enumerate(files, 1):
+        print(f" {i} {os.path.basename(f)}")
+    print(f" {len(files) + 1}. PROCESSING ALL FILES (Default)")
+    print("-"*40 + "\n")
+
+    # Interactive selection with timeout
+    choice = cf.input_with_timeout("Select a file by number", timeout=10)
+    
+    selected_files = []
+    
+    if not choice.strip():
+        print(">> No input provided. Auto-selecting ALL files.")
+        selected_files = files
+    else:
+        try:
+            selection = int(choice.strip())
+            if 1 <= selection <= len(files):
+                print(f">> Selected: {os.path.basename(files[selection-1])}")
+                selected_files = [files[selection-1]]
+            elif selection == len(files) + 1:
+                print(">> Selected: ALL FILES")
+                selected_files = files
+            else:
+                print(">> Invalid selection number. Defaulting to ALL files.")
+                selected_files = files
+        except ValueError:
+            print(">> Invalid input. Defaulting to ALL files.")
+            selected_files = files
+
+    if not selected_files:
+        return
+
+    print(f"\n🚀 Starting pipeline for {len(selected_files)} file(s)...\n")
+
     try:
-        asyncio.run(run_files(files, limit=args.limit, dry_run=args.dry))
+        asyncio.run(run_files(selected_files))
     except Exception as e:
         print(f"Fatal error during run: {e}", file=sys.stderr)
         sys.exit(1)
