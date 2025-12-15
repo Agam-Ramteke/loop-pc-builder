@@ -16,6 +16,7 @@ __pycache__/
 .env.*
 !.env.example
 .venv/
+Backend/.venv
 venv/
 ENV/
 env/
@@ -66,6 +67,8 @@ coverage/
 # Backend generated data
 Backend/logs/
 Backend/jobs_meta/
+Backend/Data_Collection/Scrapers/Elite Hubs/data
+Backend/Data_Collection/Scrapers/MD_computers/data
 
 Backend/generated_data/
 *.log
