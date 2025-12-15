@@ -1,12 +1,9 @@
-# This file lists the Python dependencies for the project.
-# Each line specifies a package that can be installed via pip.
 aiofiles
 aiohappyeyeballs
 aiohttp
 aiosignal
 attrs
 beautifulsoup4
-bs4
 certifi
 charset-normalizer
 colorama
@@ -30,7 +27,6 @@ packaging
 pandas
 pandas-stubs
 pillow
-pip
 propcache
 Pygments
 pymongo
@@ -39,7 +35,6 @@ python-dateutil
 pytz
 requests
 rich
-setuptools
 six
 slugify
 soupsieve
@@ -47,5 +42,4 @@ tqdm
 typing_extensions
 tzdata
 urllib3
-wheel
 yarl

@@ -29,6 +29,7 @@ URLS = [
     "https://mdcomputers.in/catalog/cpu-cooler"
 ]
 
+
 HEADERS = {"User-Agent": UserAgent().random}
 os.makedirs(DATA_DIR, exist_ok=True)
 
