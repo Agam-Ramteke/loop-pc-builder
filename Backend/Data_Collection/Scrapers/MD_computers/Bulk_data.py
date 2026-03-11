@@ -28,6 +28,7 @@ URLS = [
     "https://mdcomputers.in/catalog/smps",
     "https://mdcomputers.in/catalog/cabinet",
     "https://mdcomputers.in/catalog/cpu-cooler",
+    "https://mdcomputers.in/catalog/motherboard",
 ]
 
 # curl_cffi impersonates Chrome at the TLS level — no extra headers needed.

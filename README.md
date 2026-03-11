@@ -1,24 +1,26 @@
 # Loop – PC Builder (India)
 Scraping-first backend plus a lightweight React dashboard to collect PC part pricing from Indian retailers.
 
-> Status (Dec 2025): **Data collection in progress**  
-> - MD Computers scraper is active (category listings → JSON → MongoDB ingest)  
-> - EliteHubs processor scraper is available  
-> - FastAPI job runner + minimal React UI to kick off/monitor scrapes
+> Status (March 2026): **UI Refinement & Full-Stack Integration**  
+> - MD Computers scraper active with optimized raw-image pipelines  
+> - Frontend completely migrated to Next.js 16 (App Router)
+> - Premium Google Antigravity-inspired UI with Canvas physics and Light/Dark modes
 
 ---
 
 ## What’s working
 - **MD Computers pipeline**
   - `Bulk_data.py` grabs category listings asynchronously and saves daily JSONs in `Backend/Data_Collection/Scrapers/MD_computers/data/`.
-  - `Async_Scraper.py` ingests those JSONs: downloads snapshots, parses products, downloads images with deduping, and upserts into MongoDB (per-category collections).
-  - Cleans up snapshots, retries failed image downloads, and prunes/refreshes stale records.
+  - `Async_Scraper.py` ingests those JSONs: downloads snapshots, parses products, safely retrieves original high-res images, and upserts into MongoDB.
+  - Drops computationally expensive background removal (`rembg`) in favor of Next.js frontend CSS blend modes for massively improved speed.
 - **EliteHubs scraper**
   - `Backend/Data_Collection/Scrapers/Elite Hubs/elitehubs.py` scrapes the processors collection, saves `processors_<date>.json`, and prunes files older than 7 days.
 - **Job runner API (FastAPI)**
   - `Backend/api.py` exposes endpoints to list data files, start/stop scraper jobs (`bulk` or `async`), stream logs via WebSocket, and persist job metadata/logs.
-- **Frontend dashboard (Vite + React)**
-  - Located in `Frontend/`, lists data files, starts jobs through the API, shows active/past jobs, and tails logs live.
+- **Frontend application (Next.js 16 + Tailwind)**
+  - Located in `Frontend/`, built on React 19 and Turbopack.
+  - Features an advanced, ultra-premium UI inspired by Google Antigravity (Canvas Starfield physics, interactive cursor rings, Light/Dark mode).
+  - Uses CSS `mix-blend-multiply` with solid white presentation boxes to flawlessly integrate product component imagery without hard masking.
 
 ---
 
@@ -27,7 +29,7 @@ Scraping-first backend plus a lightweight React dashboard to collect PC part pri
   - `Data_Collection/Scrapers/MD_computers/` – bulk + async ingest pipeline, shared utils in `common_functions.py`  
   - `Data_Collection/Scrapers/Elite Hubs/` – processor scraper  
   - `logs/`, `jobs_meta/` – persisted job output/metadata written by the API
-- `Frontend/` – Vite/React dashboard that talks to the FastAPI backend
+- `Frontend/` – Next.js application containing the modern Antigravity storefront UI
 - `docs/` – architecture and scraping notes
 
 ---
