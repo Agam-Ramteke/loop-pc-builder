@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import { BuildProvider } from "@/context/BuildContext";
 import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import ThemeToggle from "@/components/ThemeToggle";
 import CursorAndBackground from "@/components/CursorAndBackground";
@@ -37,6 +38,7 @@ export default function RootLayout({
             <main className="flex-grow z-10">
               {children}
             </main>
+            <Footer />
           </BuildProvider>
           <ThemeToggle />
         </ThemeProvider>

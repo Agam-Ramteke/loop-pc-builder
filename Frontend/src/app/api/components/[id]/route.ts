@@ -72,6 +72,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
              name: name,
              brand: brand,
              price: isNaN(price) ? 0 : price,
+             provider: doc.source || 'MD Computers',
              image: imageLocalUrl,
              inStock: !doc.out_of_stock,
              wattage: 0, // Simplified extraction

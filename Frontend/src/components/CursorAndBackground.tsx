@@ -35,22 +35,7 @@ export default function CursorAndBackground() {
       
 
       
-      {/* Trailing Soft Glow */}
-      <motion.div
-        className="fixed top-0 left-0 w-64 h-64 rounded-full pointer-events-none z-[99]"
-        style={{
-          background: 'radial-gradient(circle, rgba(66, 133, 244, 0.15) 0%, rgba(0,0,0,0) 70%)',
-        }}
-        animate={{
-          x: mousePosition.x - 128,
-          y: mousePosition.y - 128,
-        }}
-        transition={{
-          type: 'tween',
-          ease: 'easeOut',
-          duration: 0.15,
-        }}
-      />
+      
     </>
   );
 }

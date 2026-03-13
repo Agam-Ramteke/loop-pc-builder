@@ -515,6 +515,34 @@ def input_with_timeout(prompt: str, timeout: int = 10) -> str:
 # ─────────────────────────────────────────
 #  HTML PARSING
 # ─────────────────────────────────────────
+def _parse_price_number(price_str: Optional[str]) -> Optional[float]:
+    """Extract a numeric price from a string like '₹12,345'."""
+    if not price_str:
+        return None
+    import re as _re
+    match = _re.findall(r"[\d,.]+", price_str)
+    if not match:
+        return None
+    cleaned = "".join(match).replace(",", "")
+    try:
+        return float(cleaned)
+    except ValueError:
+        return None
+
+
+def _calculate_discount_percent(
+    original_str: Optional[str], discounted_str: Optional[str]
+) -> Optional[str]:
+    """Auto-calculate discount % when both original and discounted prices are available."""
+    orig = _parse_price_number(original_str)
+    disc = _parse_price_number(discounted_str)
+    if orig and disc and orig > disc:
+        pct = round((1 - disc / orig) * 100)
+        if pct > 0:
+            return f"-{pct}%"
+    return None
+
+
 def parse_product_page(
     html_file_path: str,
     product_url: Optional[str] = None,
@@ -525,6 +553,11 @@ def parse_product_page(
     """
     Parse product details from a saved HTML snapshot.
     Returns a dict ready for upsert_product.
+
+    FIX: When the product-page parser cannot find prices (selectors don't
+    match), it now falls back to any existing price data already stored
+    in the DB (populated earlier by Bulk_data.py from category pages).
+    This prevents valid prices from being overwritten with nulls.
     """
     with open(html_file_path, "r", encoding="utf-8") as f:
         soup = BeautifulSoup(f, "html.parser")
@@ -533,15 +566,36 @@ def parse_product_page(
     name_el = soup.select_one("h1.product-name-title")
     name    = name_el.get_text(strip=True) if name_el else None
 
-    # Prices
+    # Prices — try multiple selector strategies
     price_new   = soup.select_one("span.price-new")
     price_old   = soup.select_one("span.price-old")
     discount_el = soup.select_one(".discount-percentage")
-    prices = {
+
+    parsed_prices = {
         "discounted": price_new.get_text(strip=True)   if price_new   else None,
         "original":   price_old.get_text(strip=True)   if price_old   else None,
         "discount":   discount_el.get_text(strip=True) if discount_el else None,
     }
+
+    # FIX: If product-page selectors found nothing, fall back to existing
+    # DB data (which Bulk_data.py already populated from category listings).
+    existing_price: Dict[str, Any] = {}
+    if collection is not None and product_url:
+        existing_doc = collection.find_one({"url": product_url}, {"price": 1})
+        if existing_doc and isinstance(existing_doc.get("price"), dict):
+            existing_price = existing_doc["price"]
+
+    prices = {
+        "discounted": parsed_prices["discounted"] or existing_price.get("discounted"),
+        "original":   parsed_prices["original"]   or existing_price.get("original"),
+        "discount":   parsed_prices["discount"]   or existing_price.get("discount"),
+    }
+
+    # Auto-calculate discount % when we have both prices but no explicit discount
+    if not prices["discount"] and prices["original"] and prices["discounted"]:
+        prices["discount"] = _calculate_discount_percent(
+            prices["original"], prices["discounted"]
+        )
 
     # Stock
     stock_el     = soup.select_one("span.base-color.ms-auto")

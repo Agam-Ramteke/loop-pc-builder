@@ -61,8 +61,11 @@ export default function ProductDetailPage() {
 
         {/* Product Details Component */}
         <div className="flex flex-col">
-          <div className="mb-2 text-neon-blue font-bold tracking-wide uppercase text-sm">
-            {component.brand} • {component.category}
+          <div className="mb-2 flex items-center gap-2 text-neon-blue font-bold tracking-wide uppercase text-sm">
+            <span>{component.brand} • {component.category}</span>
+            <span className="px-2 py-0.5 rounded bg-neon-blue/10 text-[10px] border border-neon-blue/20">
+              Source: {component.provider}
+            </span>
           </div>
           <h1 className="text-4xl lg:text-5xl font-extrabold tracking-tight mb-4 text-foreground">
             {component.name}

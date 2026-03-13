@@ -33,6 +33,11 @@
   --border-gray: #202124;
 }
 
+/* Smooth Scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   background-color: var(--color-background);
   color: var(--color-foreground);
@@ -41,15 +46,97 @@ body {
 
 /* Custom scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
   background: var(--color-background);
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--color-mid-gray);
-  border-radius: 4px;
+  background: var(--color-border-gray);
+  border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-neon-blue);
+}
+
+/* Hide scrollbar for horizontal scroll containers */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Selection color */
+::selection {
+  background: rgba(66, 133, 244, 0.25);
+  color: inherit;
+}
+
+/* Dual-range slider thumbs */
+.slider-thumb::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--color-neon-blue);
+  border: 2px solid var(--color-background);
+  box-shadow: 0 0 6px rgba(66, 133, 244, 0.4);
+  cursor: grab;
+  pointer-events: auto;
+  position: relative;
+}
+.slider-thumb::-webkit-slider-thumb:active {
+  cursor: grabbing;
+  transform: scale(1.15);
+}
+.slider-thumb::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--color-neon-blue);
+  border: 2px solid var(--color-background);
+  box-shadow: 0 0 6px rgba(66, 133, 244, 0.4);
+  cursor: grab;
+  pointer-events: auto;
+}
+@keyframes cloudMovement {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.animate-clouds {
+  background-image: 
+    radial-gradient(circle at 20% 30%, rgba(255,255,255,0.4) 0%, transparent 20%),
+    radial-gradient(circle at 70% 60%, rgba(255,255,255,0.3) 0%, transparent 30%),
+    radial-gradient(circle at 40% 80%, rgba(255,255,255,0.4) 0%, transparent 25%),
+    linear-gradient(to right, #4285F4, #34A853, #4285F4);
+  background-size: 200% 200%;
+  animation: cloudMovement 10s ease-in-out infinite;
+}
+
+.cloud-text {
+  position: relative;
+  display: inline-block;
+}
+
+.cloud-text::before {
+  content: "Dream PC";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at center, rgba(255,255,255,0.8) 0%, transparent 60%);
+  background-size: 300% 300%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: cloudMovement 15s linear infinite;
+  opacity: 0.4;
+  pointer-events: none;
 }

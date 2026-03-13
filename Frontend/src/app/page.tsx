@@ -1,294 +1,184 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { ArrowRight, Zap, Target, Cpu } from 'lucide-react';
+import Image from 'next/image';
+import {
+  ArrowRight, Zap, Target, Cpu, HardDrive, MemoryStick, Monitor,
+  Fan, Box, BatteryCharging, ChevronRight, TrendingDown,
+  MessageCircle, ArrowUpRight, ThumbsUp, BookOpen, Sparkles,
+} from 'lucide-react';
 import { Component } from '@/data/mockData';
+import { blogPosts, BlogPost } from '@/data/blogData';
+import { buildGuides, BuildGuide } from '@/data/buildGuides';
 import ProductCard from '@/components/ProductCard';
-import { useAnimationFrame } from 'framer-motion';
+import AnimatedSection from '@/components/AnimatedSection';
 
-import { useTheme } from 'next-themes';
+// ─── Category Icons Map ────────────────────────────────────────────
+const CATEGORIES = [
+  { name: 'CPU', label: 'Processors', icon: Cpu, color: '#4285F4' },
+  { name: 'Video Card', label: 'Graphics Cards', icon: Monitor, color: '#EA4335' },
+  { name: 'Motherboard', label: 'Motherboards', icon: HardDrive, color: '#34A853' },
+  { name: 'Memory', label: 'RAM', icon: MemoryStick, color: '#FBBC04' },
+  { name: 'Storage', label: 'Storage', icon: HardDrive, color: '#4285F4' },
+  { name: 'Case', label: 'Cases', icon: Box, color: '#EA4335' },
+  { name: 'Power Supply', label: 'Power Supplies', icon: BatteryCharging, color: '#34A853' },
+  { name: 'CPU Cooler', label: 'CPU Coolers', icon: Fan, color: '#FBBC04' },
+];
 
-function CanvasStarfield() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const { resolvedTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (!mounted) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    let animationFrameId: number;
-    const resize = () => {
-       const rect = canvas.parentElement?.getBoundingClientRect();
-       if (rect) {
-           canvas.width = rect.width;
-           canvas.height = rect.height;
-       } else {
-           canvas.width = window.innerWidth;
-           canvas.height = window.innerHeight;
-       }
-    };
-    resize();
-    window.addEventListener('resize', resize);
-
-    let mouseX = canvas.width / 2;
-    let mouseY = canvas.height / 2;
-    
-    const handleMouseMove = (e: MouseEvent) => {
-       const rect = canvas.getBoundingClientRect();
-       mouseX = e.clientX - rect.left;
-       mouseY = e.clientY - rect.top;
-    };
-    window.addEventListener('mousemove', handleMouseMove);
-
-    const colors = [
-      [66, 133, 244],   // Google Blue
-      [161, 66, 244],   // Purple/Violet
-      [234, 67, 53],    // Salmon/Red
-      [251, 188, 5],    // Golden Yellow
-      [52, 168, 83],    // Green (sparse)
-    ];
-
-    let currentX = mouseX;
-    let currentY = mouseY;
-
-    const numParticles = 800;
-    const particles: any[] = [];
-    for (let i = 0; i < numParticles; i++) {
-        // Skew roughly half the particles toward standard Google Blue for branding unity
-        const color = Math.random() > 0.5 ? colors[0] : colors[Math.floor(Math.random() * colors.length)];
-        particles.push({
-            offsetX: Math.random() * 2000,
-            offsetY: Math.random() * 2000,
-            baseSize: Math.random() * 1.5 + 1.2,
-            floatOffset: Math.random() * Math.PI * 2,
-            c: color
-        });
-    }
-
-    let time = 0;
-    const render = () => {
-        time += 1;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        // Smoothly follow the mouse with a slight lag
-        currentX += (mouseX - currentX) * 0.1;
-        currentY += (mouseY - currentY) * 0.1;
-
-        const isDark = document.documentElement.classList.contains('dark');
-        
-        // Grid size slightly larger than typical 1080p max viewing radius to prevent pop-in
-        const gridW = 1800;
-        const gridH = 1800;
-
-        particles.forEach((p) => {
-            // Infinite continuous wrap-around relative to the cursor position
-            let relX = (p.offsetX - currentX) % gridW;
-            if (relX < 0) relX += gridW;
-            if (relX > gridW / 2) relX -= gridW;
-            const anchorX = currentX + relX;
-
-            let relY = (p.offsetY - currentY) % gridH;
-            if (relY < 0) relY += gridH;
-            if (relY > gridH / 2) relY -= gridH;
-            const anchorY = currentY + relY;
-
-            // Brownian floating motion (stationary but breathing)
-            const floatX = Math.sin(time * 0.02 + p.floatOffset) * 12;
-            const floatY = Math.cos(time * 0.015 + p.floatOffset) * 12;
-            
-            const targetX = anchorX + floatX;
-            const targetY = anchorY + floatY;
-
-            const dx = targetX - currentX;
-            const dy = targetY - currentY;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-
-            // Culling optimization outside safe visual radius
-            if (dist > 850) return;
-
-            const angle = Math.atan2(dy, dx);
-
-            // Antigravity repel for creating the large hollow eye around the cursor
-            let pushStrength = 0;
-            if (dist < 200) {
-                pushStrength = (200 - dist) * 0.5;
-            }
-
-            const finalX = targetX + Math.cos(angle) * pushStrength;
-            const finalY = targetY + Math.sin(angle) * pushStrength;
-
-            // Distance based on heavily repelled final coordinates
-            const rDx = finalX - currentX;
-            const rDy = finalY - currentY;
-            const rDist = Math.sqrt(rDx * rDx + rDy * rDy);
-
-            // Distance-based Opacity Fadeout
-            let alpha = 1 - (rDist / 800);
-            if (rDist < 200) {
-                alpha *= Math.max(0, (rDist - 120) / 80); // Fades completely in the hollow deadzone
-            }
-            alpha = Math.max(0, Math.min(1, alpha));
-            if (alpha <= 0.01) return;
-
-            alpha *= (isDark ? 0.9 : 0.6);
-
-            // Gentle pulsing logic over time
-            const pulse = (Math.sin(time * 0.03 + p.floatOffset) + 1) / 2;
-            alpha *= 0.6 + 0.4 * pulse;
-
-            // Radial dashed stretching (extends outwards along the vector from the focal point)
-            const dashLength = Math.min(18, Math.max(0, (rDist - 180) * 0.05));
-
-            ctx.beginPath();
-            ctx.fillStyle = `rgba(${p.c[0]}, ${p.c[1]}, ${p.c[2]}, ${alpha})`;
-            ctx.strokeStyle = `rgba(${p.c[0]}, ${p.c[1]}, ${p.c[2]}, ${alpha})`;
-
-            if (isDark && rDist < 350) {
-                ctx.shadowBlur = 10;
-                ctx.shadowColor = `rgba(${p.c[0]}, ${p.c[1]}, ${p.c[2]}, 1)`;
-            } else {
-                ctx.shadowBlur = 0;
-            }
-
-            if (dashLength < 1) {
-                ctx.beginPath();
-                ctx.arc(finalX, finalY, p.baseSize, 0, Math.PI * 2);
-                ctx.fill();
-            } else {
-                // Radial alignment aligns precisely to the angle from cursor to the particle
-                const drawAngle = Math.atan2(rDy, rDx);
-                const halfLength = dashLength / 2;
-                
-                // Draw a standard tabular/tubular dash. Constant thickness.
-                ctx.beginPath();
-                ctx.moveTo(finalX - Math.cos(drawAngle) * halfLength, finalY - Math.sin(drawAngle) * halfLength);
-                ctx.lineTo(finalX + Math.cos(drawAngle) * halfLength, finalY + Math.sin(drawAngle) * halfLength);
-                ctx.lineWidth = p.baseSize * 1.5; // Slightly thicker tubular line
-                ctx.lineCap = "round";
-                ctx.stroke();
-            }
-        });
-
-        ctx.globalAlpha = 1;
-        animationFrameId = requestAnimationFrame(render);
-    };
-
-    render();
-
-    return () => {
-        cancelAnimationFrame(animationFrameId);
-        window.removeEventListener('resize', resize);
-        window.removeEventListener('mousemove', handleMouseMove);
-    };
-  }, [mounted, resolvedTheme]);
-
-  return (
-    <canvas 
-      ref={canvasRef} 
-      className={`absolute inset-0 z-[5] pointer-events-none opacity-90 transition-opacity duration-1000 ${mounted && resolvedTheme === 'dark' ? 'mix-blend-screen' : 'mix-blend-normal'}`} 
-    />
-  );
+// ─── Deal Type ─────────────────────────────────────────────────────
+interface DealItem {
+  id: string;
+  name: string;
+  category: string;
+  originalPrice: number;
+  salePrice: number;
+  discountPercent: number;
+  image: string;
 }
 
+// ═══════════════════════════════════════════════════════════════════
+//  1. HERO SECTION  (Compact ~45vh)
+// ═══════════════════════════════════════════════════════════════════
 function HeroSection() {
   return (
-    <section 
-      className="relative w-full h-screen flex flex-col items-center justify-center border-b border-border-gray overflow-hidden group bg-dark-gray"
-    >
-      {/* Abstract background styling */}
+    <section className="relative w-full min-h-[45vh] flex flex-col items-center justify-center border-b border-border-gray overflow-hidden bg-dark-gray py-16 md:py-20">
+      {/* Subtle gradient blobs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-[50%] -right-[10%] w-[80%] h-[150%] bg-neon-blue/5 rounded-full blur-[120px]" />
-        <div className="absolute -bottom-[50%] -left-[10%] w-[60%] h-[120%] bg-neon-green/5 rounded-full blur-[100px]" />
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik0wIDBoNDB2NDBIMHoiIGZpbGw9Im5vbmUiIC8+CjxwYXRoIGQ9Ik0wIDM5aDQwTTAgMHY0MEgwem0zOSAwVjAiIHN0cm9rZT0icmdiYSgxMDAsMTAwLDEwMCwwLjA1KSIgc3Ryb2tlLXdpZHRoPSIxIiBmaWxsPSJub25lIiAvPgo8L3N2Zz4=')] [mask-image:linear-gradient(to_bottom,white,transparent)]" />
+        <div className="absolute -top-[30%] -right-[10%] w-[60%] h-[120%] bg-neon-blue/[0.04] rounded-full blur-[100px]" />
+        <div className="absolute -bottom-[30%] -left-[10%] w-[50%] h-[100%] bg-neon-green/[0.04] rounded-full blur-[80px]" />
       </div>
 
-      <CanvasStarfield />
+      <div className="container mx-auto px-4 relative z-10 flex flex-col items-center text-center">
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-border-gray bg-background/50 text-neon-blue text-xs mb-6 backdrop-blur-md">
+          <Sparkles className="w-3.5 h-3.5" />
+          <span className="font-medium tracking-wide">India&apos;s Smartest PC Builder</span>
+        </div>
 
-      <div className="container mx-auto px-4 relative z-10 flex flex-col items-center text-center -mt-10">
-        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border-gray bg-background/50 text-neon-blue text-sm mb-8 backdrop-blur-md shadow-[0_0_15px_rgba(66,133,244,0.15)]">
-          <Zap className="w-4 h-4" />
-          <span className="font-medium tracking-wide">Next-Gen Builder Engine</span>
-        </div>
-        <h1 className="text-6xl md:text-8xl lg:text-9xl font-heading font-extrabold tracking-tighter mb-8 leading-[1.1]">
-          Build Your <br/>
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-neon-blue via-blue-400 to-neon-blue/80 inline-block pb-3">Dream PC</span>
-        </h1>
-        <p className="max-w-[700px] text-gray-500 text-xl md:text-2xl mb-12 font-sans font-light">
-          Intelligent component aggregation, real-time compatibility checking, and exact market pricing.
-        </p>
-        <div className="flex flex-col sm:flex-row gap-6 w-full sm:w-auto">
-          <Link 
-            href="/builder" 
-            className="group flex items-center justify-center gap-3 h-16 px-10 rounded-2xl bg-foreground text-background font-heading font-bold text-lg hover:scale-105 transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_40px_rgba(66,133,244,0.4)]"
+        <motion.h1 
+          initial={{ opacity: 0, y: 24, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ 
+            duration: 1.2, 
+            ease: [0.22, 1, 0.36, 1],
+          }}
+          className="text-4xl md:text-6xl lg:text-7xl font-heading font-extrabold tracking-tighter mb-5 leading-[1.1]"
+        >
+          <motion.span
+            initial={{ opacity: 0.5, color: 'var(--color-gray-500)' }}
+            animate={{ opacity: 1, color: 'var(--color-foreground)' }}
+            transition={{ duration: 1.5, delay: 0.2 }}
           >
-            Start Building Now
-            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-          </Link>
-          <Link 
-            href="/browse" 
-            className="flex items-center justify-center h-16 px-10 rounded-2xl bg-transparent text-foreground font-heading font-bold text-lg border border-border-gray hover:bg-foreground/5 dark:hover:bg-white/5 transition-all hover:border-gray-400 hover:scale-105 backdrop-blur-md"
+            Build Your{' '}
+          </motion.span>
+          <motion.span 
+            className="text-transparent bg-clip-text bg-gradient-to-r from-neon-blue via-blue-400 to-neon-blue/80 relative"
+            initial={{ opacity: 0, filter: 'blur(8px)' }}
+            animate={{ opacity: 1, filter: 'blur(0px)' }}
+            transition={{ 
+              opacity: { duration: 1, delay: 0.5 },
+              filter: { duration: 1.2, delay: 0.5 },
+            }}
           >
-            Browse Components
-          </Link>
-        </div>
+            Dream PC
+            {/* Animated Cloud Layer */}
+            <motion.span 
+              className="absolute inset-0 text-transparent bg-clip-text pointer-events-none"
+              style={{
+                backgroundImage: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.1) 15%, rgba(255,255,255,0.6) 25%, rgba(255,255,255,0.1) 35%, transparent 50%, rgba(255,255,255,0.4) 75%, transparent 100%)',
+                backgroundSize: '400% 100%',
+                WebkitBackgroundClip: 'text',
+              }}
+              animate={{ 
+                backgroundPosition: ['100% 0%', '-100% 0%'],
+              }}
+              transition={{ 
+                duration: 20, 
+                repeat: Infinity, 
+                ease: "linear" 
+              }}
+            >
+              Dream PC
+            </motion.span>
+          </motion.span>
+        </motion.h1>
+        <motion.p 
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.8 }}
+          className="max-w-[540px] text-gray-500 text-base md:text-lg mb-8 font-light leading-relaxed"
+        >
+          Real-time pricing from top Indian retailers. Smart compatibility checks. Zero guesswork.
+        </motion.p>
+
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 1 }}
+          className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto"
+        >
+          <motion.div
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <Link
+              href="/builder"
+              className="group flex items-center justify-center gap-2 h-12 px-8 rounded-xl bg-foreground text-background font-heading font-bold text-sm transition-all duration-200 shadow-[0_0_20px_rgba(255,255,255,0.05)] w-full"
+            >
+              Start Building
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+            </Link>
+          </motion.div>
+          <motion.div
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <Link
+              href="/browse"
+              className="flex items-center justify-center h-12 px-8 rounded-xl bg-transparent text-foreground font-heading font-bold text-sm border border-border-gray hover:bg-foreground/5 dark:hover:bg-white/5 transition-all duration-200 w-full"
+            >
+              Browse Components
+            </Link>
+          </motion.div>
+        </motion.div>
       </div>
     </section>
   );
 }
 
-function FeaturesSection() {
-  const features = [
-    {
-      icon: <Target className="w-8 h-8 text-neon-blue" />,
-      title: "Smart Compatibility",
-      desc: "Our engine automatically checks socket types, wattage, and physical dimensions to ensure your parts fit perfectly.",
-      gradient: "from-neon-blue/40"
-    },
-    {
-      icon: <Cpu className="w-8 h-8 text-neon-green" />,
-      title: "Massive Selection",
-      desc: "Aggregating data from top retailers to give you access to thousands of parts, updated in real-time.",
-      gradient: "from-neon-green/40"
-    },
-    {
-      icon: <Zap className="w-8 h-8 text-neon-blue" />,
-      title: "Live Pricing",
-      desc: "Find the lowest prices and never overpay for your hardware with our daily price tracking algorithms.",
-      gradient: "from-neon-blue/40"
-    }
-  ];
-
+// ═══════════════════════════════════════════════════════════════════
+//  2. QUICK CATEGORY NAVIGATION
+// ═══════════════════════════════════════════════════════════════════
+function CategoryNavSection() {
   return (
-    <section className="py-32 bg-background relative overflow-hidden">
-      <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik0wIDBoNDB2NDBIMHoiIGZpbGw9Im5vbmUiIC8+CjxwYXRoIGQ9Ik0wIDM5aDQwTTAgMHY0MEgwem0zOSAwVjAiIHN0cm9rZT0icmdiYSgxMDAsMTAwLDEwMCwwLjAyKSIgc3Ryb2tlLXdpZHRoPSIxIiBmaWxsPSJub25lIiAvPgo8L3N2Zz4=')] [mask-image:linear-gradient(to_bottom,transparent,white,transparent)] pointer-events-none" />
-      
-      <div className="container mx-auto px-4 relative z-10">
-        <div className="text-center mb-20 md:mb-32">
-          <h2 className="text-4xl md:text-6xl lg:text-7xl font-heading font-extrabold tracking-tight mb-6">Engineered for <span className="text-foreground/30">Excellence</span></h2>
-          <p className="text-xl md:text-2xl text-gray-500 max-w-2xl mx-auto font-light">Every feature designed to provide a frictionless build experience from conception to ordering.</p>
-        </div>
+    <section className="py-16 bg-background border-b border-border-gray">
+      <div className="container mx-auto px-4">
+        <AnimatedSection>
+          <div className="text-center mb-10">
+            <h2 className="text-2xl md:text-3xl font-heading font-bold tracking-tight mb-2">Browse by Category</h2>
+            <p className="text-gray-500 text-sm">Find exactly what you need for your build</p>
+          </div>
+        </AnimatedSection>
 
-        <div className="grid md:grid-cols-3 gap-8 lg:gap-12">
-          {features.map((feature, i) => (
-            <div key={i} className="group relative rounded-[2rem] bg-gradient-to-b from-border-gray/50 to-transparent p-[1px] overflow-hidden hover:from-border-gray transition-colors duration-700">
-              <div className={`absolute inset-0 bg-gradient-to-b ${feature.gradient} to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 blur-[60px] pointer-events-none`} />
-              <div className="relative h-full bg-background rounded-[2rem] p-10 lg:p-12 flex flex-col items-start group-hover:bg-mid-gray/40 transition-colors duration-500">
-                <div className="p-5 bg-mid-gray/50 rounded-2xl border border-border-gray mb-8 group-hover:scale-110 group-hover:bg-dark-gray transition-all duration-500">
-                   {feature.icon}
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+          {CATEGORIES.map((cat, i) => (
+            <AnimatedSection key={cat.name} delay={i * 0.04}>
+              <Link
+                href={`/browse?category=${encodeURIComponent(cat.name)}`}
+                className="group flex flex-col items-center gap-3 p-5 rounded-2xl border border-border-gray bg-mid-gray/30 hover:bg-mid-gray hover:border-gray-400 dark:hover:border-gray-600 transition-all duration-300"
+              >
+                <div
+                  className="w-12 h-12 rounded-xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110"
+                  style={{ backgroundColor: `${cat.color}15` }}
+                >
+                  <cat.icon className="w-5 h-5" style={{ color: cat.color }} />
                 </div>
-                <h3 className="text-3xl font-heading font-bold mb-4 text-foreground group-hover:text-neon-blue transition-colors duration-300">{feature.title}</h3>
-                <p className="text-gray-500 font-sans text-lg leading-relaxed">{feature.desc}</p>
-              </div>
-            </div>
+                <span className="text-xs font-medium text-gray-500 group-hover:text-foreground transition-colors text-center leading-tight">
+                  {cat.label}
+                </span>
+              </Link>
+            </AnimatedSection>
           ))}
         </div>
       </div>
@@ -296,45 +186,481 @@ function FeaturesSection() {
   );
 }
 
-export default function Home() {
-  const [trendingParts, setTrendingParts] = useState<Component[]>([]);
+// ═══════════════════════════════════════════════════════════════════
+//  3. PC BUILDER CTA
+// ═══════════════════════════════════════════════════════════════════
+function BuilderCTASection() {
+  return (
+    <section className="py-10 bg-background">
+      <div className="container mx-auto px-4">
+        <AnimatedSection>
+          <div className="relative overflow-hidden rounded-2xl border border-border-gray bg-gradient-to-r from-neon-blue/[0.08] via-transparent to-neon-green/[0.08] p-8 md:p-12 flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-5">
+              <div className="w-14 h-14 rounded-2xl bg-neon-blue/10 flex items-center justify-center shrink-0">
+                <Target className="w-7 h-7 text-neon-blue" />
+              </div>
+              <div>
+                <h3 className="text-xl md:text-2xl font-heading font-bold mb-1">Build Your PC Now</h3>
+                <p className="text-gray-500 text-sm md:text-base">
+                  Select parts, check compatibility, and compare prices — all in one tool.
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/builder"
+              className="group flex items-center gap-2 h-11 px-6 rounded-xl bg-neon-blue text-white font-bold text-sm hover:bg-neon-blue/90 transition-all shrink-0"
+            >
+              Open Builder
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+            </Link>
+          </div>
+        </AnimatedSection>
+      </div>
+    </section>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  4. TRENDING COMPONENTS
+// ═══════════════════════════════════════════════════════════════════
+function TrendingSection({ parts }: { parts: Component[] }) {
+  if (parts.length === 0) return null;
+
+  return (
+    <section className="py-20 bg-dark-gray border-t border-b border-border-gray">
+      <div className="container mx-auto px-4">
+        <AnimatedSection>
+          <div className="flex justify-between items-end mb-10">
+            <div>
+              <h2 className="text-2xl md:text-3xl font-heading font-bold mb-2">Trending Components</h2>
+              <p className="text-gray-500 text-sm">Popular picks this week</p>
+            </div>
+            <Link
+              href="/browse"
+              className="text-neon-blue hover:text-neon-blue/80 text-sm font-medium flex items-center gap-1 group"
+            >
+              View all <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+            </Link>
+          </div>
+        </AnimatedSection>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {parts.map((part, i) => (
+            <AnimatedSection key={part.id} delay={i * 0.08}>
+              <ProductCard component={part} />
+            </AnimatedSection>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  5. PRICE DROPS / DEALS
+// ═══════════════════════════════════════════════════════════════════
+function DealsSection({ deals }: { deals: DealItem[] }) {
+  if (deals.length === 0) return null;
+
+  return (
+    <section id="deals" className="py-20 bg-background border-b border-border-gray">
+      <div className="container mx-auto px-4">
+        <AnimatedSection>
+          <div className="flex justify-between items-end mb-10">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-neon-red/10 flex items-center justify-center">
+                <TrendingDown className="w-5 h-5 text-neon-red" />
+              </div>
+              <div>
+                <h2 className="text-2xl md:text-3xl font-heading font-bold mb-1">Price Drops</h2>
+                <p className="text-gray-500 text-sm">Best deals from Indian retailers right now</p>
+              </div>
+            </div>
+          </div>
+        </AnimatedSection>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+          {deals.map((deal, i) => (
+            <AnimatedSection key={deal.id} delay={i * 0.06}>
+              <Link
+                href={`/product/${deal.id}`}
+                className="group block rounded-xl border border-border-gray bg-mid-gray/30 hover:border-neon-red/30 transition-all duration-300 overflow-hidden"
+              >
+                <div className="relative h-36 bg-white">
+                  <Image
+                    src={deal.image}
+                    alt={deal.name}
+                    fill
+                    className="object-contain p-4 group-hover:scale-105 transition-transform duration-500"
+                  />
+                  <span className="absolute top-2 left-2 bg-neon-red text-white text-xs font-bold px-2 py-0.5 rounded-md">
+                    -{deal.discountPercent}%
+                  </span>
+                </div>
+                <div className="p-4">
+                  <div className="text-xs text-gray-400 mb-1">{deal.category}</div>
+                  <h4 className="text-sm font-medium text-foreground mb-3 line-clamp-2 leading-tight">
+                    {deal.name}
+                  </h4>
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg font-bold text-neon-green">₹{deal.salePrice.toLocaleString('en-IN')}</span>
+                    <span className="text-xs text-gray-400 line-through">₹{deal.originalPrice.toLocaleString('en-IN')}</span>
+                  </div>
+                </div>
+              </Link>
+            </AnimatedSection>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  6. BUILD GUIDES
+// ═══════════════════════════════════════════════════════════════════
+function BuildGuidesSection() {
+  return (
+    <section id="build-guides" className="py-20 bg-dark-gray border-b border-border-gray">
+      <div className="container mx-auto px-4">
+        <AnimatedSection>
+          <div className="text-center mb-12">
+            <h2 className="text-2xl md:text-3xl font-heading font-bold tracking-tight mb-2">Build Guides</h2>
+            <p className="text-gray-500 text-sm max-w-lg mx-auto">
+              Curated configurations for every budget. Pick a starting point and customize it in our builder.
+            </p>
+          </div>
+        </AnimatedSection>
+
+        <div className="grid md:grid-cols-3 gap-5">
+          {buildGuides.map((guide, i) => (
+            <AnimatedSection key={guide.id} delay={i * 0.1}>
+              <div className="group rounded-2xl border border-border-gray bg-background hover:border-gray-400 dark:hover:border-gray-600 transition-all duration-300 overflow-hidden">
+                {/* Header */}
+                <div className="p-6 pb-4" style={{ borderBottom: `1px solid ${guide.color}20` }}>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-2xl">{guide.icon}</span>
+                    <span
+                      className="text-xs font-bold px-2.5 py-1 rounded-full"
+                      style={{ backgroundColor: `${guide.color}15`, color: guide.color }}
+                    >
+                      {guide.tier.toUpperCase()}
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-heading font-bold mb-1">{guide.title}</h3>
+                  <p className="text-gray-500 text-sm leading-relaxed">{guide.description}</p>
+                </div>
+
+                {/* Component List */}
+                <div className="px-6 py-4">
+                  <ul className="space-y-2.5">
+                    {guide.components.map((comp) => (
+                      <li key={comp.category} className="flex justify-between items-center text-sm">
+                        <span className="text-gray-400">{comp.category}</span>
+                        <span className="text-foreground font-medium text-right max-w-[65%] truncate">{comp.name}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Footer */}
+                <div className="px-6 py-4 border-t border-border-gray flex items-center justify-between">
+                  <div>
+                    <span className="text-xs text-gray-400">Total Estimated</span>
+                    <div className="text-xl font-bold font-heading" style={{ color: guide.color }}>
+                      ₹{guide.totalPrice.toLocaleString('en-IN')}
+                    </div>
+                  </div>
+                  <Link
+                    href="/builder"
+                    className="flex items-center gap-1 text-sm font-medium px-4 py-2 rounded-lg border border-border-gray hover:bg-foreground/5 transition-colors"
+                  >
+                    Customize <ArrowUpRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+              </div>
+            </AnimatedSection>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  7. BLOG SECTION
+// ═══════════════════════════════════════════════════════════════════
+function BlogSection() {
+  return (
+    <section id="blog" className="py-20 bg-background border-b border-border-gray">
+      <div className="container mx-auto px-4">
+        <AnimatedSection>
+          <div className="flex justify-between items-end mb-10">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-neon-blue/10 flex items-center justify-center">
+                <BookOpen className="w-5 h-5 text-neon-blue" />
+              </div>
+              <div>
+                <h2 className="text-2xl md:text-3xl font-heading font-bold mb-1">From the Blog</h2>
+                <p className="text-gray-500 text-sm">Guides, reviews, and build inspiration</p>
+              </div>
+            </div>
+            <Link href="#" className="text-neon-blue hover:text-neon-blue/80 text-sm font-medium flex items-center gap-1 group">
+              All posts <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+            </Link>
+          </div>
+        </AnimatedSection>
+
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
+          {blogPosts.map((post, i) => (
+            <AnimatedSection key={post.id} delay={i * 0.08}>
+              <article className="group rounded-xl border border-border-gray bg-mid-gray/30 hover:border-gray-400 dark:hover:border-gray-600 transition-all duration-300 overflow-hidden flex flex-col h-full">
+                <div className="relative h-40 overflow-hidden">
+                  <Image
+                    src={post.image}
+                    alt={post.title}
+                    fill
+                    className="object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                  <span className="absolute top-2 left-2 bg-neon-blue/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wide">
+                    {post.category}
+                  </span>
+                </div>
+                <div className="p-4 flex flex-col flex-grow">
+                  <div className="flex items-center gap-2 text-xs text-gray-400 mb-2">
+                    <span>{post.date}</span>
+                    <span>·</span>
+                    <span>{post.readTime}</span>
+                  </div>
+                  <h4 className="text-sm font-bold text-foreground mb-2 line-clamp-2 leading-snug group-hover:text-neon-blue transition-colors">
+                    {post.title}
+                  </h4>
+                  <p className="text-xs text-gray-500 line-clamp-2 flex-grow">{post.excerpt}</p>
+                </div>
+              </article>
+            </AnimatedSection>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function timeAgo(input: string | number): string {
+  const ts = typeof input === 'number' ? input * 1000 : new Date(input).getTime();
+  const d = Math.floor((Date.now() - ts) / 1000);
+  if (d < 3600)  return `${Math.floor(d / 60)}m ago`;
+  if (d < 86400) return `${Math.floor(d / 3600)}h ago`;
+  return `${Math.floor(d / 86400)}d ago`;
+}
+
+function formatViews(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M views`;
+  if (n >= 1_000)     return `${(n / 1_000).toFixed(0)}K views`;
+  return `${n} views`;
+}
+
+function formatScore(n: number): string {
+  return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  8. COMMUNITY OPINIONS (YouTube + Reddit)
+// ═══════════════════════════════════════════════════════════════════
+function CommunitySection() {
+  const [youtube, setYoutube] = useState<any[]>([]);
+  const [reddit, setReddit] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     let mounted = true;
+    fetch('/api/community')
+      .then(r => r.json())
+      .then(d => {
+        if (!mounted) return;
+        setYoutube(d.youtube ?? []);
+        setReddit(d.reddit ?? []);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (mounted) { setError(true); setLoading(false); }
+      });
+    return () => { mounted = false; };
+  }, []);
+
+  return (
+    <section id="community" className="py-20 bg-dark-gray border-b border-border-gray">
+      <div className="container mx-auto px-4">
+        <AnimatedSection>
+          <div className="text-center mb-12">
+            <h2 className="text-2xl md:text-3xl font-heading font-bold tracking-tight mb-2">Community Opinions</h2>
+            <p className="text-gray-500 text-sm">What builders are watching and discussing</p>
+          </div>
+        </AnimatedSection>
+
+        <div className="grid lg:grid-cols-2 gap-8 items-stretch">
+          {/* YouTube Feed */}
+          <AnimatedSection delay={0} direction="left" className="h-full">
+            <div className="flex flex-col h-full">
+              <div className="flex items-center gap-2 mb-5 shrink-0">
+                <svg className="w-5 h-5 text-red-500" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8zM9.75 15.5v-7l6.5 3.5-6.5 3.5z"/>
+                </svg>
+                <h3 className="text-lg font-heading font-bold">Popular on YouTube</h3>
+              </div>
+              <div className="flex-1 flex flex-col justify-between space-y-3">
+                {loading && (
+                  <>
+                    {[1, 2, 3, 4].map((n) => (
+                      <div key={`yt-skel-${n}`} className="p-4 rounded-xl border border-border-gray bg-background h-[120px] animate-pulse" />
+                    ))}
+                  </>
+                )}
+                {!loading && (error || youtube.length === 0) && (
+                  <div className="p-4 rounded-xl border border-border-gray bg-background text-gray-500 text-sm text-center">
+                    Could not load videos. Check YOUTUBE_API_KEY in .env.local.
+                  </div>
+                )}
+                {!loading && !error && youtube.length > 0 && youtube.map((video: any) => (
+                  <a
+                    key={video.id}
+                    href={video.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-4 rounded-xl border border-border-gray bg-background hover:border-gray-400 dark:hover:border-gray-600 transition-all duration-300 flex items-start gap-5 flex-1 mb-3 last:mb-0 group"
+                  >
+                    <div className="relative w-56 h-32 shrink-0 overflow-hidden rounded-lg">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img 
+                        src={video.thumbnail} 
+                        alt={video.title} 
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1 min-w-0 py-1">
+                      <p className="text-base font-bold text-foreground leading-tight line-clamp-2 group-hover:text-neon-blue transition-colors duration-200">{video.title}</p>
+                      <p className="text-xs text-gray-400 font-medium">
+                        {video.channel} · {formatViews(parseInt(video.viewCount, 10) || 0)} · {timeAgo(video.publishedAt)}
+                      </p>
+                      {video.description && (
+                        <p className="text-[13px] text-gray-500 line-clamp-2 mt-1 leading-relaxed">{video.description}</p>
+                      )}
+                      {video.source === 'search' && (
+                        <div className="mt-auto pt-2">
+                          <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-neon-blue uppercase tracking-wider">
+                            <Sparkles className="w-3 h-3" /> Trending
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </div>
+          </AnimatedSection>
+
+          {/* Reddit Feed */}
+          <AnimatedSection delay={0.1} direction="right" className="h-full">
+            <div className="flex flex-col h-full">
+              <div className="flex items-center gap-2 mb-5 shrink-0">
+                <svg className="w-5 h-5 text-orange-500" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 0 0-.231.094.33.33 0 0 0 0 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 0 0 .029-.463.33.33 0 0 0-.464 0c-.547.533-1.684.73-2.512.73-.828 0-1.979-.196-2.512-.73a.326.326 0 0 0-.232-.095z" />
+                </svg>
+                <h3 className="text-lg font-heading font-bold">Popular on Reddit</h3>
+              </div>
+              <div className="flex-1 flex flex-col justify-between space-y-3">
+                {loading && (
+                  <>
+                    {[1, 2, 3, 4, 5, 6].map((n) => (
+                      <div key={`reddit-skel-${n}`} className="p-4 rounded-xl border border-border-gray bg-background h-[120px] animate-pulse" />
+                    ))}
+                  </>
+                )}
+                {!loading && (error || reddit.length === 0) && (
+                  <div className="p-4 rounded-xl border border-border-gray bg-background text-gray-500 text-sm text-center">
+                    Could not load posts.
+                  </div>
+                )}
+                {!loading && !error && reddit.length > 0 && reddit.map((post: any) => (
+                  <div
+                    key={post.id}
+                    className="p-4 rounded-xl border border-border-gray bg-background hover:border-gray-400 dark:hover:border-gray-600 transition-all duration-300 cursor-pointer flex-1 mb-3 last:mb-0"
+                    onClick={() => window.open(post.url, '_blank')}
+                  >
+                    <div className="flex items-start gap-3 h-full">
+                      <div className="flex flex-col items-center gap-0.5 text-gray-400 shrink-0 mt-0.5">
+                        <ThumbsUp className="w-3.5 h-3.5" />
+                        <span className="text-xs font-bold text-foreground">{formatScore(post.score)}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <span className="text-[10px] font-bold text-orange-500">r/{post.subreddit}</span>
+                          {post.flair && (
+                            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-500/10 text-gray-400 whitespace-nowrap">
+                              {post.flair}
+                            </span>
+                          )}
+                          <span className="text-xs text-gray-500 ml-auto">{timeAgo(post.createdUtc)}</span>
+                        </div>
+                        <h4 className="text-sm font-medium text-foreground mb-1 leading-snug line-clamp-2">{post.title}</h4>
+                        {post.preview && (
+                          <p className="text-xs text-gray-500 line-clamp-1 mb-2">{post.preview}</p>
+                        )}
+                        <div className="flex items-center gap-3 text-xs text-gray-500 mt-auto">
+                          <span className="flex items-center gap-1">
+                            <MessageCircle className="w-3 h-3" /> {formatScore(post.numComments)}
+                          </span>
+                          <span>u/{post.author}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </AnimatedSection>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  MAIN HOME PAGE
+// ═══════════════════════════════════════════════════════════════════
+export default function Home() {
+  const [trendingParts, setTrendingParts] = useState<Component[]>([]);
+  const [deals, setDeals] = useState<DealItem[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    // Fetch trending components
     fetch('/api/components/trending')
       .then(res => res.json())
-      .then(parts => {
-        if (mounted) setTrendingParts(parts);
-      })
+      .then(parts => { if (mounted) setTrendingParts(parts); })
       .catch(console.error);
+
+    // Fetch deals
+    fetch('/api/components/deals')
+      .then(res => res.json())
+      .then(data => { if (mounted && Array.isArray(data)) setDeals(data); })
+      .catch(console.error);
+
     return () => { mounted = false; };
   }, []);
 
   return (
     <div className="flex flex-col min-h-screen">
       <HeroSection />
-      <FeaturesSection />
-
-      {/* Trending Components */}
-      <section className="py-32 bg-dark-gray border-t border-border-gray">
-        <div className="container mx-auto px-4">
-          <div className="flex justify-between items-end mb-12">
-            <div>
-              <h2 className="text-4xl md:text-5xl font-heading font-bold mb-4">Trending Components</h2>
-              <p className="text-gray-400 text-lg md:text-xl font-light">Most popular choices this week</p>
-            </div>
-            <Link href="/browse" className="text-neon-blue hover:text-neon-blue/80 text-lg font-medium flex items-center gap-2 group">
-              View all <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </Link>
-          </div>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 xl:gap-8">
-            {trendingParts.map(part => (
-               <ProductCard key={part.id} component={part} />
-            ))}
-          </div>
-        </div>
-      </section>
+      <CategoryNavSection />
+      <BuilderCTASection />
+      <TrendingSection parts={trendingParts} />
+      <DealsSection deals={deals} />
+      <BuildGuidesSection />
+      <BlogSection />
+      <CommunitySection />
     </div>
   );
 }

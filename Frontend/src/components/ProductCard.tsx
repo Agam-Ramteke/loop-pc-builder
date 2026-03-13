@@ -40,7 +40,12 @@ export default function ProductCard({ component }: ProductCardProps) {
       </Link>
       
       <div className="p-4 flex flex-col flex-grow">
-        <div className="text-xs text-gray-400 mb-1">{component.brand}</div>
+        <div className="flex justify-between items-start mb-1">
+          <div className="text-xs text-gray-400">{component.brand}</div>
+          <div className="text-[10px] font-bold text-neon-blue uppercase tracking-tighter opacity-70">
+            {component.provider}
+          </div>
+        </div>
         <Link href={`/product/${component.id}`} className="font-bold text-foreground mb-2 hover:text-neon-blue transition-colors line-clamp-2">
           {component.name}
         </Link>
@@ -54,18 +59,30 @@ export default function ProductCard({ component }: ProductCardProps) {
         </div>
         
         <div className="flex items-center justify-between mt-auto">
-          <span className="text-xl font-bold text-foreground">₹{component.price.toFixed(2)}</span>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xl font-bold text-foreground">₹{component.price.toLocaleString('en-IN')}</span>
+            {component.originalPrice && component.originalPrice > component.price && (
+              <>
+                <span className="text-sm text-gray-400 line-through">₹{component.originalPrice.toLocaleString('en-IN')}</span>
+                {component.discountPercent && (
+                  <span className="text-xs font-bold text-neon-green bg-neon-green/10 px-1.5 py-0.5 rounded">
+                    -{component.discountPercent}%
+                  </span>
+                )}
+              </>
+            )}
+          </div>
           <button
             onClick={() => addComponent(component)}
-            disabled={!component.inStock || isSelected}
+            disabled={isSelected}
             className={`flex items-center justify-center w-10 h-10 rounded transition-colors ${
               isSelected 
                 ? 'bg-neon-green/20 text-neon-green border border-neon-green/50 cursor-default'
                 : component.inStock
                   ? 'bg-neon-blue text-black hover:bg-neon-blue/80'
-                  : 'bg-dark-gray text-gray-500 cursor-not-allowed'
+                  : 'bg-red-500/20 text-red-500 border border-red-500/30 hover:bg-red-500/30'
             }`}
-            title={isSelected ? "Already in build" : "Add to build"}
+            title={isSelected ? "Already in build" : (component.inStock ? "Add to build" : "Add out-of-stock item")}
           >
             {isSelected ? <Check className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
           </button>

@@ -32,7 +32,17 @@ export default function BuildSlot({ category, component, onChoose }: BuildSlotPr
               <Link href={`/product/${component.id}`} className="font-bold hover:text-neon-blue transition-colors line-clamp-1">
                 {component.name}
               </Link>
-              <div className="text-sm text-neon-green font-mono mt-1">₹{component.price.toFixed(2)}</div>
+              <div className="flex items-center gap-4 mt-1">
+                <div className="text-sm text-neon-green font-mono">₹{component.price.toFixed(2)}</div>
+                <div className="text-[10px] bg-white/5 text-gray-400 px-1.5 py-0.5 rounded border border-white/10 uppercase font-bold tracking-tight">
+                  {component.provider}
+                </div>
+                {!component.inStock && (
+                  <span className="text-[10px] bg-red-500/20 text-red-500 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider border border-red-500/30">
+                    Out of Stock
+                  </span>
+                )}
+              </div>
             </div>
             <button 
               onClick={() => removeComponent(category)}

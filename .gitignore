@@ -70,8 +70,9 @@ coverage/
 # Backend generated data
 Backend/logs/
 Backend/jobs_meta/
-Backend/Data_Collection/Scrapers/Elite Hubs/data
-Backend/Data_Collection/Scrapers/MD_computers/data
+Backend/Data_Collection/Scrapers/*/data/
+Backend/Data_Collection/Scrapers/*/product_images/
+Backend/Data_Collection/Scrapers/*/async_snapshots/
 
 Backend/generated_data/
 *.log

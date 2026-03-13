@@ -16,7 +16,10 @@ export const getComponents = async (
   searchQuery?: string,
   sortBy?: 'priceAsc' | 'priceDesc' | 'name',
   page: number = 1,
-  limit: number = 20
+  limit: number = 20,
+  minPrice?: number,
+  maxPrice?: number,
+  inStock?: boolean
 ): Promise<PaginatedComponents> => {
   try {
     const params = new URLSearchParams();
@@ -25,10 +28,14 @@ export const getComponents = async (
     if (sortBy) params.append('sort', sortBy);
     if (page) params.append('page', page.toString());
     if (limit) params.append('limit', limit.toString());
-    
+    // Forward price bounds to the server so filtering + totalCount are accurate
+    if (minPrice !== undefined) params.append('minPrice', minPrice.toString());
+    if (maxPrice !== undefined) params.append('maxPrice', maxPrice.toString());
+    if (inStock !== undefined) params.append('inStock', inStock.toString());
+
     const res = await fetch(`/api/components?${params.toString()}`);
     if (!res.ok) throw new Error('Failed to fetch components');
-    
+
     return await res.json();
   } catch (error) {
     console.error("Error fetching components:", error);
@@ -55,7 +62,7 @@ export interface CompatibilityReport {
 
 export const checkCompatibility = async (buildItems: Component[]): Promise<CompatibilityReport> => {
   await new Promise((resolve) => setTimeout(resolve, 400));
-  
+
   const report: CompatibilityReport = {
     isValid: true,
     warnings: [],
@@ -80,7 +87,7 @@ export const checkCompatibility = async (buildItems: Component[]): Promise<Compa
     const totalWattage = buildItems.reduce((sum, item) => sum + (item.wattage || 0), 0);
     const psuWattage = parseInt(psu.specs.Wattage?.replace('W', '') || '0', 10);
     if (psuWattage > 0 && totalWattage > psuWattage * 0.8) {
-       report.warnings.push(`Warning: System wattage (${totalWattage}W) is approaching PSU capacity.`);
+      report.warnings.push(`Warning: System wattage (${totalWattage}W) is approaching PSU capacity.`);
     }
   }
 
