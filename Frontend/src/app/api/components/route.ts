@@ -1,54 +1,153 @@
 import { NextRequest, NextResponse } from 'next/server';
+import type { Document } from 'mongodb';
 import clientPromise from '@/lib/mongodb';
-import { Component, ComponentCategory } from '@/data/mockData';
-import path from 'path';
+import {
+  CATEGORY_COLLECTIONS,
+  CATEGORY_MAP,
+  buildSearchFilter,
+  createPriceNumberExpression,
+  createResolvedNameExpression,
+  createResolvedOriginalPriceSourceExpression,
+  createResolvedSalePriceSourceExpression,
+  createResolvedSpecsExpression,
+  mapMongoDocToComponent,
+} from '@/lib/componentData';
 
-// Map frontend categories to actual MongoDB collection names (as per the scraper variables)
-const CATEGORY_MAP: Record<string, string> = {
-  'Video Card': 'GPUs',
-  'CPU': 'Processors',
-  'Memory': 'RAM',
-  'Motherboard': 'Motherboards',
-  'Power Supply': 'SMPS',
-  'Storage': 'Storage',
-  'Case': 'Cabinets',
-  'CPU Cooler': 'CpuCoolers'
-};
+type ComponentSort = 'priceAsc' | 'priceDesc' | 'name';
 
-const REVERSE_MAP: Record<string, ComponentCategory> = {
-  'GPUs': 'Video Card',
-  'Processors': 'CPU',
-  'RAM': 'Memory',
-  'Motherboards': 'Motherboard',
-  'SMPS': 'Power Supply',
-  'Storage': 'Storage',
-  'Cabinets': 'Case',
-  'CpuCoolers': 'CPU Cooler'
-};
+function buildBasePipeline(options: {
+  collectionName: string;
+  searchQuery?: string | null;
+  inStockOnly: boolean;
+  minPrice: number | null;
+  maxPrice: number | null;
+}): Document[] {
+  const pipeline: Document[] = [];
+  const searchFilter = buildSearchFilter(options.searchQuery ?? undefined, options.inStockOnly);
 
-// Safety cap: never fetch more than this many docs per collection.
-// Raise this if your collections grow beyond it.
-const MAX_DOCS_PER_COLLECTION = 2000;
-
-// Map DB keys to standard keys to normalize the output without touching the db
-function normalizeSpecs(docSpecs: any): Record<string, string> {
-  const specs: Record<string, string> = {};
-  if (!docSpecs) return specs;
-
-  for (const [key, val] of Object.entries(docSpecs)) {
-    if (typeof val === 'string' && val.trim() !== '') {
-      specs[key] = val.trim();
-    }
+  if (Object.keys(searchFilter).length > 0) {
+    pipeline.push({ $match: searchFilter });
   }
-  return specs;
+
+  pipeline.push({
+    $addFields: {
+      resolvedName: createResolvedNameExpression(),
+      normalizedSpecs: createResolvedSpecsExpression(),
+      numericPrice: createPriceNumberExpression(createResolvedSalePriceSourceExpression()),
+      numericOriginalPrice: createPriceNumberExpression(createResolvedOriginalPriceSourceExpression()),
+    },
+  });
+
+  const priceMatch: Record<string, number> = {};
+  if (options.minPrice !== null) {
+    priceMatch.$gte = options.minPrice;
+  }
+  if (options.maxPrice !== null) {
+    priceMatch.$lte = options.maxPrice;
+  }
+
+  if (Object.keys(priceMatch).length > 0) {
+    pipeline.push({ $match: { numericPrice: priceMatch } });
+  }
+
+  pipeline.push({
+    $addFields: {
+      numericDiscountPercent: {
+        $cond: [
+          {
+            $and: [
+              { $gt: ['$numericOriginalPrice', 0] },
+              { $gt: ['$numericPrice', 0] },
+              { $gt: ['$numericOriginalPrice', '$numericPrice'] },
+            ],
+          },
+          {
+            $multiply: [
+              {
+                $divide: [
+                  { $subtract: ['$numericOriginalPrice', '$numericPrice'] },
+                  '$numericOriginalPrice',
+                ],
+              },
+              100,
+            ],
+          },
+          0,
+        ],
+      },
+      collName: { $literal: options.collectionName },
+    },
+  });
+
+  pipeline.push({
+    $project: {
+      _id: 1,
+      name: 1,
+      title: 1,
+      price: 1,
+      source: 1,
+      out_of_stock: 1,
+      image_path: 1,
+      normalizedSpecs: 1,
+      numericPrice: 1,
+      numericOriginalPrice: 1,
+      numericDiscountPercent: 1,
+      resolvedName: 1,
+      collName: 1,
+    },
+  });
+
+  return pipeline;
 }
 
-function extractWattage(title: string, specs: any): number {
-  if (specs && specs["Wattage"]) {
-    const w = parseInt(specs["Wattage"].replace(/\D/g, ''), 10);
-    if (!isNaN(w)) return w;
+function buildUnionPipeline(collectionsToQuery: string[], options: Omit<Parameters<typeof buildBasePipeline>[0], 'collectionName'>): {
+  collectionName: string;
+  pipeline: Document[];
+} {
+  const [firstCollection, ...restCollections] = collectionsToQuery;
+  const pipeline = buildBasePipeline({
+    collectionName: firstCollection,
+    ...options,
+  });
+
+  for (const collectionName of restCollections) {
+    pipeline.push({
+      $unionWith: {
+        coll: collectionName,
+        pipeline: buildBasePipeline({
+          collectionName,
+          ...options,
+        }),
+      },
+    });
   }
-  return 0;
+
+  return {
+    collectionName: firstCollection,
+    pipeline,
+  };
+}
+
+function buildSortStage(sortBy: string | null): Record<string, 1 | -1> {
+  const safeSort = sortBy as ComponentSort | null;
+
+  if (safeSort === 'priceAsc') {
+    return {
+      numericPrice: 1,
+      resolvedName: 1,
+    };
+  }
+
+  if (safeSort === 'priceDesc') {
+    return {
+      numericPrice: -1,
+      resolvedName: 1,
+    };
+  }
+
+  return {
+    resolvedName: 1,
+  };
 }
 
 export async function GET(request: NextRequest) {
@@ -57,152 +156,69 @@ export async function GET(request: NextRequest) {
     const categoryQuery = searchParams.get('category');
     const searchQuery = searchParams.get('search');
     const sortBy = searchParams.get('sort');
-    const page = parseInt(searchParams.get('page') || '1', 10);
-    const limit = Math.min(parseInt(searchParams.get('limit') || '20', 10), 100); // cap page size at 100
-
-    // FIX 3 — Read price range from query params so filtering happens server-side
-    const minPrice = searchParams.has('minPrice') ? parseFloat(searchParams.get('minPrice')!) : null;
-    const maxPrice = searchParams.has('maxPrice') ? parseFloat(searchParams.get('maxPrice')!) : null;
+    const parsedPage = Number.parseInt(searchParams.get('page') || '1', 10);
+    const parsedLimit = Number.parseInt(searchParams.get('limit') || '20', 10);
+    const page = Number.isFinite(parsedPage) ? Math.max(parsedPage, 1) : 1;
+    const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 100) : 20;
+    const skip = (page - 1) * limit;
+    const minPrice = searchParams.has('minPrice') ? Number.parseFloat(searchParams.get('minPrice') || '') : null;
+    const maxPrice = searchParams.has('maxPrice') ? Number.parseFloat(searchParams.get('maxPrice') || '') : null;
     const inStockOnly = searchParams.get('inStock') === 'true';
+
+    let collectionsToQuery = CATEGORY_COLLECTIONS;
+    if (categoryQuery && categoryQuery !== 'All') {
+      const mappedCollection = CATEGORY_MAP[categoryQuery];
+      if (!mappedCollection) {
+        return NextResponse.json({ error: 'Invalid category' }, { status: 400 });
+      }
+      collectionsToQuery = [mappedCollection];
+    }
 
     const client = await clientPromise;
     const db = client.db('PC_Parts');
 
-    // Determine which collections to scan
-    let collectionsToQuery = Object.values(CATEGORY_MAP);
-    if (categoryQuery && categoryQuery !== 'All') {
-      const dbCollectionName = CATEGORY_MAP[categoryQuery];
-      if (dbCollectionName) {
-        collectionsToQuery = [dbCollectionName];
-      } else {
-        return NextResponse.json({ error: "Invalid category" }, { status: 400 });
-      }
-    }
+    const { collectionName, pipeline } = buildUnionPipeline(collectionsToQuery, {
+      searchQuery,
+      inStockOnly,
+      minPrice: Number.isFinite(minPrice) ? minPrice : null,
+      maxPrice: Number.isFinite(maxPrice) ? maxPrice : null,
+    });
 
-    // FIX 1 — Query all collections in parallel (no per-collection limit cap)
-    const collectionResults = await Promise.all(
-      collectionsToQuery.map(async (collName) => {
-        const collection = db.collection(collName);
+    const sortStage = buildSortStage(sortBy);
 
-        const filter: any = {};
-        if (searchQuery) {
-          filter.$or = [
-            { name: { $regex: searchQuery, $options: 'i' } },
-            { title: { $regex: searchQuery, $options: 'i' } },
-            { "specs.Brand": { $regex: searchQuery, $options: 'i' } }
-          ];
-        }
+    const [docs, countResult] = await Promise.all([
+      db
+        .collection(collectionName)
+        .aggregate<Record<string, unknown>>([
+          ...pipeline,
+          { $sort: sortStage },
+          { $skip: skip },
+          { $limit: limit },
+        ])
+        .toArray(),
+      db
+        .collection(collectionName)
+        .aggregate<{ totalCount: number }>([
+          ...pipeline,
+          { $count: 'totalCount' },
+        ])
+        .toArray(),
+    ]);
 
-        // FIX 1 — Removed hard .limit(100); replaced with safety cap MAX_DOCS_PER_COLLECTION
-        const docs = await collection.find(filter).limit(MAX_DOCS_PER_COLLECTION).toArray();
+    const totalCount = countResult[0]?.totalCount ?? 0;
+    const data = docs.map((doc) => mapMongoDocToComponent(doc, String(doc.collName)));
 
-        const normalizedDocs: Component[] = docs.map(doc => {
-          const specs = normalizeSpecs(doc.specifications || doc.specs);
-
-          let discountedStr = '0';
-          let originalStr = '0';
-          let discountStr = '0';
-
-          if (doc.price && typeof doc.price === 'object') {
-            discountedStr = doc.price.discounted || '0';
-            originalStr = doc.price.original || '0';
-            discountStr = doc.price.discount || '0';
-          } else if (doc.price && typeof doc.price === 'string') {
-            discountedStr = doc.price;
-          }
-
-          let salePrice = 0;
-          let originalPrice = 0;
-          let discountPercent = 0;
-
-          if (typeof discountedStr === 'string' || typeof originalStr === 'string') {
-            const saleMatch = discountedStr.match?.(/[\d,.]+/g);
-            salePrice = saleMatch ? parseFloat(saleMatch.join('').replace(/,/g, '')) : 0;
-
-            const origMatch = originalStr.match?.(/[\d,.]+/g);
-            const origNum = origMatch ? parseFloat(origMatch.join('').replace(/,/g, '')) : 0;
-
-            if (!salePrice && origNum) salePrice = origNum;
-
-            if (origNum && salePrice && origNum > salePrice) {
-              originalPrice = origNum;
-            }
-
-            const discMatch = discountStr.match?.(/[\d.]+/);
-            if (discMatch) {
-              discountPercent = Math.round(parseFloat(discMatch[0]));
-            } else if (origNum && salePrice && origNum > salePrice) {
-              discountPercent = Math.round((1 - salePrice / origNum) * 100);
-            }
-          }
-
-
-          let imageLocalUrl = "https://images.unsplash.com/photo-1591405351990-4726e331f141?q=80&w=400";
-          if (doc.image_path) {
-            const filename = path.basename(doc.image_path);
-            imageLocalUrl = `/api/images?file=${encodeURIComponent(filename)}`;
-          }
-
-          const name = doc.name || doc.title || 'Unknown Product';
-          const brand = specs['Brand'] || (name ? name.split(' ')[0] : 'Unknown');
-
-          return {
-            id: doc._id.toString(),
-            category: REVERSE_MAP[collName],
-            name: name,
-            brand: brand,
-            price: isNaN(salePrice) ? 0 : salePrice,
-            originalPrice: originalPrice,
-            discountPercent: discountPercent,
-            image: imageLocalUrl,
-            inStock: !doc.out_of_stock && salePrice > 0,
-            provider: doc.source || 'MD Computers',
-            wattage: extractWattage(name, doc.specifications || doc.specs),
-            specs: specs
-          };
-        });
-
-        return normalizedDocs;
-      })
+    return NextResponse.json(
+      {
+        data,
+        totalCount,
+        page,
+        totalPages: totalCount > 0 ? Math.ceil(totalCount / limit) : 1,
+      },
+      { status: 200 },
     );
-
-    let allResults: Component[] = collectionResults.flat();
-
-    // ── SERVER-SIDE FILTERING ──
-    if (minPrice !== null || maxPrice !== null || inStockOnly) {
-      allResults = allResults.filter(comp => {
-        const meetsMin = minPrice === null || comp.price >= minPrice;
-        const meetsMax = maxPrice === null || comp.price <= maxPrice;
-        const meetsStock = !inStockOnly || comp.inStock;
-        return meetsMin && meetsMax && meetsStock;
-      });
-    }
-
-    // FIX 2 — Added missing 'name' sort (A-Z). localeCompare handles accents/case correctly.
-    if (sortBy === 'priceAsc') {
-      allResults.sort((a, b) => a.price - b.price);
-    } else if (sortBy === 'priceDesc') {
-      allResults.sort((a, b) => b.price - a.price);
-    } else {
-      // Default: sort by name A-Z (covers the 'name' case and undefined sortBy)
-      allResults.sort((a, b) =>
-        a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
-      );
-    }
-
-    const totalCount = allResults.length;
-    const startIndex = (page - 1) * limit;
-    const paginatedResults = allResults.slice(startIndex, startIndex + limit);
-
-    return NextResponse.json({
-      data: paginatedResults,
-      totalCount,
-      page,
-      totalPages: Math.ceil(totalCount / limit)
-    }, { status: 200 });
-
-  } catch (error: any) {
-    console.error("API /components error:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  } catch (error) {
+    console.error('API /components error:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

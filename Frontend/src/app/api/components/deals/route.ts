@@ -1,21 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
-import path from 'path';
-
-const CATEGORY_MAP = [
-  'GPUs', 'Processors', 'RAM', 'Motherboards', 'SMPS', 'Storage', 'Cabinets', 'CpuCoolers'
-];
-
-const REVERSE_CATEGORY: Record<string, string> = {
-  'GPUs': 'Video Card',
-  'Processors': 'CPU',
-  'RAM': 'Memory',
-  'Motherboards': 'Motherboard',
-  'SMPS': 'Power Supply',
-  'Storage': 'Storage',
-  'Cabinets': 'Case',
-  'CpuCoolers': 'CPU Cooler'
-};
+import {
+  CATEGORY_COLLECTIONS,
+  REVERSE_CATEGORY_MAP,
+  createPriceNumberExpression,
+  createResolvedNameExpression,
+  resolveImageUrl,
+} from '@/lib/componentData';
 
 export interface DealItem {
   id: string;
@@ -27,80 +18,104 @@ export interface DealItem {
   image: string;
 }
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const client = await clientPromise;
     const db = client.db('PC_Parts');
 
-    const deals: DealItem[] = [];
+    const dealGroups = await Promise.all(
+      CATEGORY_COLLECTIONS.map(async (collectionName) => {
+        const docs = await db
+          .collection(collectionName)
+          .aggregate<Record<string, unknown>>([
+            {
+              $match: {
+                image_path: { $exists: true, $ne: null },
+                out_of_stock: { $ne: true },
+              },
+            },
+            {
+              $addFields: {
+                resolvedName: createResolvedNameExpression(),
+                numericOriginalPrice: createPriceNumberExpression('$price.original'),
+                numericSalePrice: createPriceNumberExpression({
+                  $ifNull: ['$price.discounted', '$price.original'],
+                }),
+              },
+            },
+            {
+              $addFields: {
+                numericDiscountPercent: {
+                  $cond: [
+                    {
+                      $and: [
+                        { $gt: ['$numericOriginalPrice', 0] },
+                        { $gt: ['$numericSalePrice', 0] },
+                        { $gt: ['$numericOriginalPrice', '$numericSalePrice'] },
+                      ],
+                    },
+                    {
+                      $multiply: [
+                        {
+                          $divide: [
+                            { $subtract: ['$numericOriginalPrice', '$numericSalePrice'] },
+                            '$numericOriginalPrice',
+                          ],
+                        },
+                        100,
+                      ],
+                    },
+                    0,
+                  ],
+                },
+              },
+            },
+            {
+              $match: {
+                numericOriginalPrice: { $gt: 0 },
+                numericSalePrice: { $gt: 0 },
+                numericDiscountPercent: { $gt: 0 },
+              },
+            },
+            {
+              $sort: {
+                numericDiscountPercent: -1,
+                numericSalePrice: 1,
+              },
+            },
+            { $limit: 5 },
+            {
+              $project: {
+                _id: 1,
+                resolvedName: 1,
+                image_path: 1,
+                numericOriginalPrice: 1,
+                numericSalePrice: 1,
+                numericDiscountPercent: 1,
+              },
+            },
+          ])
+          .toArray();
 
-    for (const collName of CATEGORY_MAP) {
-      const collection = db.collection(collName);
+        return docs.map((doc) => ({
+          id: String(doc._id),
+          name: String(doc.resolvedName || 'Unknown Product'),
+          category: REVERSE_CATEGORY_MAP[collectionName] || collectionName,
+          originalPrice: Math.round(Number(doc.numericOriginalPrice) || 0),
+          salePrice: Math.round(Number(doc.numericSalePrice) || 0),
+          discountPercent: Math.round(Number(doc.numericDiscountPercent) || 0),
+          image: resolveImageUrl(doc.image_path),
+        }));
+      }),
+    );
 
-      // Find products where the price object has a discount field
-      const docs = await collection.find({
-        'price.discount': { $exists: true, $nin: [null, ''] },
-        image_path: { $exists: true, $ne: null },
-      }).limit(5).toArray();
-
-      for (const doc of docs) {
-        if (!doc.price || typeof doc.price !== 'object') continue;
-
-        const originalStr = doc.price.original || '';
-        const discountedStr = doc.price.discounted || '';
-        const discountStr = doc.price.discount || '';
-
-        // Parse original price
-        const origMatch = originalStr.match?.(/[\d,.]+/g);
-        const originalPrice = origMatch ? parseFloat(origMatch.join('').replace(/,/g, '')) : 0;
-
-        // Parse discounted price (may be null)
-        let salePrice = 0;
-        if (discountedStr) {
-          const saleMatch = discountedStr.match?.(/[\d,.]+/g);
-          salePrice = saleMatch ? parseFloat(saleMatch.join('').replace(/,/g, '')) : 0;
-        }
-
-        // Parse discount percent
-        const discMatch = discountStr.match?.(/[\d.]+/);
-        let discountPercent = discMatch ? parseFloat(discMatch[0]) : 0;
-
-        // Calculate sale price if it was null but we have discount
-        if (!salePrice && originalPrice && discountPercent) {
-          salePrice = originalPrice * (1 - discountPercent / 100);
-        }
-        // Calculate discount percent if we have both prices but no explicit discount
-        if (!discountPercent && originalPrice && salePrice && originalPrice > salePrice) {
-          discountPercent = Math.round((1 - salePrice / originalPrice) * 100);
-        }
-
-        if (!originalPrice || !salePrice || discountPercent <= 0 || originalPrice <= salePrice) continue;
-
-        let imageUrl = 'https://images.unsplash.com/photo-1591405351990-4726e331f141?q=80&w=400';
-        if (doc.image_path) {
-          const filename = path.basename(doc.image_path);
-          imageUrl = `/api/images?file=${encodeURIComponent(filename)}`;
-        }
-
-        deals.push({
-          id: doc._id.toString(),
-          name: doc.name || doc.title || 'Unknown Product',
-          category: REVERSE_CATEGORY[collName] || collName,
-          originalPrice: Math.round(originalPrice),
-          salePrice: Math.round(salePrice),
-          discountPercent: Math.round(discountPercent),
-          image: imageUrl,
-        });
-      }
-    }
-
-    // Sort by highest discount first, take top 8
-    deals.sort((a, b) => b.discountPercent - a.discountPercent);
-    const topDeals = deals.slice(0, 8);
+    const topDeals = dealGroups
+      .flat()
+      .sort((a, b) => b.discountPercent - a.discountPercent || a.salePrice - b.salePrice)
+      .slice(0, 8);
 
     return NextResponse.json(topDeals, { status: 200 });
-
-  } catch (error: any) {
+  } catch (error) {
     console.error('API /components/deals error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }

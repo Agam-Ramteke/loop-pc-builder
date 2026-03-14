@@ -6,7 +6,7 @@ export interface Component {
   name: string;
   brand: string;
   price: number;
-  provider: 'PrimeABGB' | 'MD Computers';
+  provider: 'PrimeABGB' | 'MD Computers' | 'EliteHubs' | string;
   originalPrice?: number;  // original/MRP before discount
   discountPercent?: number; // discount percentage (e.g. 30 means 30% off)
   image: string;

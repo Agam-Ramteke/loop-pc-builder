@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import path from 'path';
-import fs from 'fs';
+import { access, readFile } from 'fs/promises';
 
 // All directories that may contain product images from different scrapers.
 // The API will search each directory in order and serve the first match.
 const IMAGE_DIRS = [
   path.resolve(process.cwd(), '../Backend/Data_Collection/Scrapers/MD_computers/product_images'),
   path.resolve(process.cwd(), '../Backend/Data_Collection/Scrapers/PrimeABGB/product_images'),
+  path.resolve(process.cwd(), '../Backend/Data_Collection/Scrapers/Elite Hubs/product_images'),
 ];
 
 export async function GET(request: NextRequest) {
@@ -25,27 +26,26 @@ export async function GET(request: NextRequest) {
     const filePath = path.join(imageDir, safeFilename);
 
     try {
-      if (fs.existsSync(filePath)) {
-        const fileBuffer = fs.readFileSync(filePath);
+      await access(filePath);
+      const fileBuffer = await readFile(filePath);
 
-        // Determine content type
-        let contentType = 'image/jpeg';
-        if (filePath.endsWith('.png')) contentType = 'image/png';
-        else if (filePath.endsWith('.gif')) contentType = 'image/gif';
-        else if (filePath.endsWith('.webp')) contentType = 'image/webp';
-        else if (filePath.endsWith('.svg')) contentType = 'image/svg+xml';
+      let contentType = 'image/jpeg';
+      if (filePath.endsWith('.png')) contentType = 'image/png';
+      else if (filePath.endsWith('.gif')) contentType = 'image/gif';
+      else if (filePath.endsWith('.webp')) contentType = 'image/webp';
+      else if (filePath.endsWith('.svg')) contentType = 'image/svg+xml';
 
-        return new NextResponse(fileBuffer, {
-          status: 200,
-          headers: {
-            'Content-Type': contentType,
-            'Cache-Control': 'public, max-age=86400', // Cache for 1 day
-          },
-        });
-      }
+      return new NextResponse(fileBuffer, {
+        status: 200,
+        headers: {
+          'Content-Type': contentType,
+          'Cache-Control': 'public, max-age=86400',
+        },
+      });
     } catch (error) {
-      console.error(`Error checking image in ${imageDir}:`, error);
-      // Continue to check next directory
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        console.error(`Error checking image in ${imageDir}:`, error);
+      }
     }
   }
 

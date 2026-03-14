@@ -8,7 +8,7 @@ import signal
 import sys
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from pymongo import MongoClient
+from pymongo import ASCENDING, TEXT, IndexModel, MongoClient
 from curl_cffi.requests import AsyncSession as CurlSession  # replaces aiohttp for page fetches
 import aiohttp   # kept only for REQUEST_TIMEOUT type used in cf.download_with_retry
 from concurrent.futures import ThreadPoolExecutor
@@ -28,7 +28,7 @@ os.makedirs(SNAPSHOT_DIR, exist_ok=True)
 os.makedirs(IMAGE_DIR, exist_ok=True)
 
 DB_NAME           = "PC_Parts"
-CONNECTION_STRING = "mongodb://localhost:27017/"
+CONNECTION_STRING = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
 FRESHNESS_LIMIT   = timedelta(days=2)
 
 MAX_CONCURRENT_DOWNLOADS = 25
@@ -49,6 +49,24 @@ COLLECTION_MAP = {
 }
 
 _shutdown = False
+
+
+def ensure_collection_indexes(db) -> None:
+    """Create the indexes needed by browse APIs and staleness checks."""
+    index_models = [
+        IndexModel([("price.discounted", ASCENDING)], name="price_discounted_idx"),
+        IndexModel([("out_of_stock", ASCENDING)], name="out_of_stock_idx"),
+        IndexModel([("image_path", ASCENDING)], name="image_path_idx"),
+        IndexModel([("url", ASCENDING)], unique=True, name="url_unique_idx"),
+        IndexModel([("scraped_at", ASCENDING)], name="scraped_at_idx"),
+        IndexModel([("name", TEXT), ("title", TEXT)], name="name_title_text_idx"),
+    ]
+
+    for collection_name in sorted(set(COLLECTION_MAP.values())):
+        try:
+            db[collection_name].create_indexes(index_models)
+        except Exception as exc:
+            log.warning("Could not ensure indexes for %s: %s", collection_name, exc)
 
 # ─────────────────────────────────────────
 #  LOGGING
@@ -283,6 +301,7 @@ async def run_files(file_paths, limit: int | None = None, dry_run: bool = False)
     # FIX: MongoClient is now explicitly closed in the finally block
     client = MongoClient(CONNECTION_STRING)
     db     = client[DB_NAME]
+    ensure_collection_indexes(db)
 
     # FIX: CurlSession impersonates Chrome's TLS fingerprint — prevents 403 from
     # Cloudflare/WAF bot filters that aiohttp triggered on every request.
