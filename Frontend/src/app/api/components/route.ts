@@ -12,8 +12,10 @@ import {
   createResolvedSpecsExpression,
   mapMongoDocToComponent,
 } from '@/lib/componentData';
+import { buildCacheKey, cacheGet, cacheSet } from '@/lib/redis';
 
 type ComponentSort = 'priceAsc' | 'priceDesc' | 'name';
+const CACHE_TTL_SECONDS = 120;
 
 function buildBasePipeline(options: {
   collectionName: string;
@@ -157,13 +159,36 @@ export async function GET(request: NextRequest) {
     const searchQuery = searchParams.get('search');
     const sortBy = searchParams.get('sort');
     const parsedPage = Number.parseInt(searchParams.get('page') || '1', 10);
-    const parsedLimit = Number.parseInt(searchParams.get('limit') || '20', 10);
+    const parsedLimit = Number.parseInt(searchParams.get('limit') || '21', 10);
     const page = Number.isFinite(parsedPage) ? Math.max(parsedPage, 1) : 1;
-    const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 100) : 20;
+    const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 100) : 21;
     const skip = (page - 1) * limit;
     const minPrice = searchParams.has('minPrice') ? Number.parseFloat(searchParams.get('minPrice') || '') : null;
     const maxPrice = searchParams.has('maxPrice') ? Number.parseFloat(searchParams.get('maxPrice') || '') : null;
     const inStockOnly = searchParams.get('inStock') === 'true';
+    const safeMinPrice = Number.isFinite(minPrice) ? minPrice : null;
+    const safeMaxPrice = Number.isFinite(maxPrice) ? maxPrice : null;
+
+    const cacheKey = buildCacheKey('components:browse:v1', {
+      category: categoryQuery || 'All',
+      search: searchQuery || '',
+      sort: sortBy || 'name',
+      page,
+      limit,
+      minPrice: safeMinPrice,
+      maxPrice: safeMaxPrice,
+      inStockOnly,
+    });
+
+    const cached = await cacheGet<{
+      data: ReturnType<typeof mapMongoDocToComponent>[];
+      totalCount: number;
+      page: number;
+      totalPages: number;
+    }>(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached, { status: 200 });
+    }
 
     let collectionsToQuery = CATEGORY_COLLECTIONS;
     if (categoryQuery && categoryQuery !== 'All') {
@@ -180,8 +205,8 @@ export async function GET(request: NextRequest) {
     const { collectionName, pipeline } = buildUnionPipeline(collectionsToQuery, {
       searchQuery,
       inStockOnly,
-      minPrice: Number.isFinite(minPrice) ? minPrice : null,
-      maxPrice: Number.isFinite(maxPrice) ? maxPrice : null,
+      minPrice: safeMinPrice,
+      maxPrice: safeMaxPrice,
     });
 
     const sortStage = buildSortStage(sortBy);
@@ -208,15 +233,16 @@ export async function GET(request: NextRequest) {
     const totalCount = countResult[0]?.totalCount ?? 0;
     const data = docs.map((doc) => mapMongoDocToComponent(doc, String(doc.collName)));
 
-    return NextResponse.json(
-      {
-        data,
-        totalCount,
-        page,
-        totalPages: totalCount > 0 ? Math.ceil(totalCount / limit) : 1,
-      },
-      { status: 200 },
-    );
+    const payload = {
+      data,
+      totalCount,
+      page,
+      totalPages: totalCount > 0 ? Math.ceil(totalCount / limit) : 1,
+    };
+
+    void cacheSet(cacheKey, payload, CACHE_TTL_SECONDS);
+
+    return NextResponse.json(payload, { status: 200 });
   } catch (error) {
     console.error('API /components error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

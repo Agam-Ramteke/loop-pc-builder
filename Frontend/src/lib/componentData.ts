@@ -230,43 +230,35 @@ export function createResolvedOriginalPriceSourceExpression(): Document {
   };
 }
 
-function createCleanNumericStringExpression(source: unknown): Document {
-  return {
-    $regexReplace: {
-      input: {
-        $replaceAll: {
-          input: {
-            $replaceAll: {
-              input: {
-                $ifNull: [{ $toString: source }, ''],
-              },
-              find: ',',
-              replacement: '',
-            },
-          },
-          find: '₹',
-          replacement: '',
-        },
-      },
-      regex: '[^0-9.]',
-      replacement: '',
-    },
-  };
-}
-
 export function createPriceNumberExpression(source: unknown): Document {
+  if (source === '$price.original') {
+    return { $ifNull: ['$numericOriginalPrice', 0] };
+  }
+  if (source === '$price.discounted' || source === '$price') {
+    return { $ifNull: ['$numericPrice', 0] };
+  }
+
+  // Fallback to parsing the string natively in MongoDB 4.4+
+  let cleaned: Document = { 
+    $convert: { input: source, to: 'string', onError: '0', onNull: '0' }
+  };
+  const removals = ['₹', 'Rs.', 'Rs', ',', ' '];
+  for (const r of removals) {
+    cleaned = {
+      $replaceAll: {
+        input: cleaned,
+        find: r,
+        replacement: ''
+      }
+    };
+  }
+
   return {
-    $let: {
-      vars: {
-        cleaned: createCleanNumericStringExpression(source),
-      },
-      in: {
-        $cond: [
-          { $regexMatch: { input: '$$cleaned', regex: '[0-9]' } },
-          { $toDouble: '$$cleaned' },
-          0,
-        ],
-      },
-    },
+    $convert: {
+      input: { $trim: { input: cleaned } },
+      to: 'double',
+      onError: 0,
+      onNull: 0
+    }
   };
 }

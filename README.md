@@ -1,108 +1,99 @@
-# Loop – PC Builder (India)
-Scraping-first backend plus a lightweight React dashboard to collect PC part pricing from Indian retailers.
+# Loop – Premium PC Part Tracker (India)
 
-> Status (March 2026): **UI Refinement & Full-Stack Integration**  
-> - MD Computers scraper active with optimized raw-image pipelines  
-> - Frontend completely migrated to Next.js 16 (App Router)
-> - Premium Google Antigravity-inspired UI with Canvas physics and Light/Dark modes
+**Loop** is a high-performance PC component pricing aggregator designed for the Indian market. It combines a fleet of asynchronous Python scrapers with a cutting-edge Next.js 16 frontend to provide a seamless browsing experience with real-time (cached) pricing from top retailers.
+
+> **Status (March 2026):** Completely migrated to Next.js 16 (Turbopack) with a centralized API layer and integrated Redis caching. Scraper support includes MD Computers, EliteHubs, and PrimeABGB.
 
 ---
 
-## What’s working
-- **MD Computers pipeline**
-  - `Bulk_data.py` grabs category listings asynchronously and saves daily JSONs in `Backend/Data_Collection/Scrapers/MD_computers/data/`.
-  - `Async_Scraper.py` ingests those JSONs: downloads snapshots, parses products, safely retrieves original high-res images, and upserts into MongoDB.
-  - Drops computationally expensive background removal (`rembg`) in favor of Next.js frontend CSS blend modes for massively improved speed.
-- **EliteHubs scraper**
-  - `Backend/Data_Collection/Scrapers/Elite Hubs/elitehubs.py` scrapes the processors collection, saves `processors_<date>.json`, and prunes files older than 7 days.
-- **Job runner API (FastAPI)**
-  - `Backend/api.py` exposes endpoints to list data files, start/stop scraper jobs (`bulk` or `async`), stream logs via WebSocket, and persist job metadata/logs.
-- **Frontend application (Next.js 16 + Tailwind)**
-  - Located in `Frontend/`, built on React 19 and Turbopack.
-  - Features an advanced, ultra-premium UI inspired by Google Antigravity (Canvas Starfield physics, interactive cursor rings, Light/Dark mode).
-  - Uses CSS `mix-blend-multiply` with solid white presentation boxes to flawlessly integrate product component imagery without hard masking.
+## ⚡ Core Features
+
+- **Multi-Retailer Scraping Engine**
+  - **MD Computers**: Full category coverage with async ingest pipeline.
+  - **EliteHubs**: Processor-specific scrapers with automated pruning.
+  - **PrimeABGB**: Recent integration focusing on precise specification extraction.
+- **Premium User Interface**
+  - **Antigravity Design**: Physics-based canvas starfield, interactive cursor particles, and sleek glassmorphism.
+  - **Performance Optimized**: Uses CSS blend modes for product images to avoid expensive background removal logic while maintaining a clean look.
+  - **Dynamic Architecture**: Built on **Next.js 16 (App Router)** and **React 19**.
+- **Robust API & Caching**
+  - Unified data API at `/api/components` using MongoDB aggregations.
+  - **Redis Integration**: High-speed caching layer to ensure sub-millisecond response times for frequent queries.
 
 ---
 
-## Repo layout
-- `Backend/` – FastAPI job runner + scraper code  
-  - `Data_Collection/Scrapers/MD_computers/` – bulk + async ingest pipeline, shared utils in `common_functions.py`  
-  - `Data_Collection/Scrapers/Elite Hubs/` – processor scraper  
-  - `logs/`, `jobs_meta/` – persisted job output/metadata written by the API
-- `Frontend/` – Next.js application containing the modern Antigravity storefront UI
-- `docs/` – architecture and scraping notes
+## 🏗️ Project Structure
 
----
-
-## Prerequisites
-- Python 3.10+ and pip
-- Node.js 18+ and npm (for the dashboard)
-- MongoDB reachable at `mongodb://localhost:27017/` (default used by `Async_Scraper.py`)
-
----
-
-## Backend setup
-```bash
-cd Backend
-python -m venv .venv && source .venv/bin/activate  # or .venv\Scripts\activate on Windows
-pip install -r ../requirements.txt
-
-# Start API (serves scraper runner + logs)
-uvicorn api:app --host 0.0.0.0 --port 8000 --reload
+```text
+├── Backend/                 # Python Data Ingestion Layer
+│   └── Data_Collection/     # Retailer-specific scrapers
+│       ├── MD_computers/    # Bulk + Async ingest pipeline
+│       ├── Elite Hubs/      # Processor scrapers
+│       └── PrimeABGB/       # Recent specialized scraper
+├── Frontend/                # Next.js 16 Web Application
+│   ├── src/app/api/         # Unified API routes (Next.js)
+│   ├── src/lib/             # Shared logic (Redis, MongoDB, UI components)
+│   └── public/              # Static assets
+└── docker-compose.yml       # Full stack infrastructure (Mongo + Redis)
 ```
-Optional auth: set `API_KEY=<token>` (FastAPI will expect `X-API-Key`).
 
 ---
 
-## Frontend setup
+## 🚀 Getting Started
+
+### 1. Infrastructure (Docker)
+The easiest way to get the database and cache running is via Docker:
+```bash
+docker-compose up -d mongodb redis
+```
+
+### 2. Backend (Scrapers)
+Scrapers ingest data directly into MongoDB. Ensure you have Python 3.10+ installed.
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Run MD Computers Scraper (Example)
+cd Backend/Data_Collection/Scrapers/MD_computers
+python Bulk_data.py --all
+python Async_Scraper.py --all
+
+# Run PrimeABGB Scraper (Example)
+cd ../PrimeABGB
+python Bulk_data.py
+python Async_Scraper.py
+```
+
+### 3. Frontend (Web UI)
+The frontend serves both the dashboard and the data API.
 ```bash
 cd Frontend
 npm install
 npm run dev
 ```
-Configure API target via `.env` (optional):
-```
-VITE_API_BASE_URL=http://127.0.0.1:8000
-VITE_API_KEY=<token-if-set>
+Accessible at: `http://localhost:3000`
+
+---
+
+## 🛠️ Configuration
+
+Customizing the environment is done via `.env.local` files:
+
+**Frontend (`Frontend/.env.local`):**
+```env
+MONGODB_URI=mongodb://localhost:27017/loop-pc-builder
+REDIS_URL=redis://localhost:6379/0
 ```
 
 ---
 
-## Running scrapers directly (without the API)
-MD Computers (category listings):
-```bash
-cd Backend/Data_Collection/Scrapers/MD_computers
-python Bulk_data.py --all                  # scrape all categories
-# python Bulk_data.py --categories processor,ram --page-limit 2
-```
+## 📝 Troubleshooting & Notes
 
-MD Computers (detail ingest → MongoDB):
-```bash
-cd Backend/Data_Collection/Scrapers/MD_computers
-python Async_Scraper.py --all              # process all JSONs in data/
-# python Async_Scraper.py --file processor_2025-12-09.json --limit 20
-# python Async_Scraper.py --all --dry      # parse only, no DB writes
-```
-
-EliteHubs processors:
-```bash
-cd "Backend/Data_Collection/Scrapers/Elite Hubs"
-python Bulk_data.py
-```
+- **Redis Connectivity**: If you see `ConnectionError`, ensure the Redis container is running (`docker-compose up -d redis`).
+- **Missing Dependencies**: If the frontend fails to build, run `npm install` again to ensure `ioredis` and other peer dependencies are fulfilled.
+- **Scraper Ingest**: Scrapers save raw JSON snapshots in their respective `data/` folders before processing them into MongoDB.
 
 ---
 
-## API quick reference
-- `GET /files` – list available JSON files in `MD_computers/data`
-- `POST /jobs/start` – body `{ "script": "bulk"|"async", ... }` mirrors CLI flags (see `Backend/api.py`)
-- `GET /jobs` / `GET /jobs/{id}` – inspect running jobs
-- `GET /jobs/{id}/logs` – persisted log tail; live logs stream over `ws://.../ws/jobs/{id}`
-- `POST /jobs/{id}/stop` – terminate a running scraper
-
----
-
-## Notes
-- Daily JSON outputs (e.g., `processor_2025-12-09.json`) live in `Backend/Data_Collection/Scrapers/MD_computers/data/`.
-- Product images are saved under `Backend/Data_Collection/Scrapers/MD_computers/product_images/`.
-- Job logs are written to `Backend/logs/`, metadata to `Backend/jobs_meta/`.
-- For scraper implementation details, see `docs/scraping_notes.md`.
+## 📄 License
+MIT © 2026 Loop PC Builder

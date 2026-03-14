@@ -1,11 +1,20 @@
 'use client';
 
+import React, { useState } from 'react';
 import Link from 'next/link';
-import { Infinity as InfinityIcon, Github, Twitter, Youtube, Mail } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Infinity as InfinityIcon, Github, Twitter, Youtube, Mail, Bell } from 'lucide-react';
 
 export default function Footer() {
+  const [toast, setToast] = useState<{ message: string; visible: boolean }>({ message: '', visible: false });
+
+  const triggerToast = (msg: string) => {
+    setToast({ message: msg, visible: true });
+    setTimeout(() => setToast(prev => ({ ...prev, visible: false })), 3000);
+  };
+
   return (
-    <footer className="bg-dark-gray border-t border-border-gray">
+    <footer className="bg-background border-t border-border-gray relative">
       <div className="container mx-auto px-4 py-16">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
           
@@ -13,7 +22,7 @@ export default function Footer() {
           <div className="lg:col-span-1">
             <Link href="/" className="flex items-center gap-2 mb-4 group">
               <InfinityIcon className="h-7 w-7 text-neon-blue" />
-              <span className="font-heading font-bold text-lg tracking-tight">
+              <span className="font-heading font-bold text-lg tracking-tight text-foreground">
                 Loop<span className="text-neon-blue">PC</span>
               </span>
             </Link>
@@ -21,15 +30,28 @@ export default function Footer() {
               India&apos;s smartest PC builder. Real-time pricing, compatibility checking, and the best deals — all in one place.
             </p>
             <div className="flex items-center gap-3">
-              <a href="#" className="w-9 h-9 rounded-lg bg-mid-gray border border-border-gray flex items-center justify-center text-gray-400 hover:text-neon-blue hover:border-neon-blue/30 transition-all">
-                <Twitter className="w-4 h-4" />
+              <button 
+                onClick={() => triggerToast('LoopPC X (Twitter) profile coming soon!')}
+                className="w-10 h-10 rounded-lg bg-mid-gray/50 border border-border-gray flex items-center justify-center text-gray-500 hover:text-white hover:bg-[#000000] hover:border-black transition-all cursor-pointer group/social"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="transition-colors">
+                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                </svg>
+              </button>
+              <a 
+                href="https://github.com/Agam-Ramteke/loop-pc-builder" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="w-10 h-10 rounded-lg bg-mid-gray/50 border border-border-gray flex items-center justify-center text-gray-500 hover:text-white hover:bg-[#24292e] hover:border-[#24292e] transition-all"
+              >
+                <Github className="w-5 h-5" />
               </a>
-              <a href="#" className="w-9 h-9 rounded-lg bg-mid-gray border border-border-gray flex items-center justify-center text-gray-400 hover:text-foreground hover:border-gray-400 transition-all">
-                <Github className="w-4 h-4" />
-              </a>
-              <a href="#" className="w-9 h-9 rounded-lg bg-mid-gray border border-border-gray flex items-center justify-center text-gray-400 hover:text-red-500 hover:border-red-500/30 transition-all">
-                <Youtube className="w-4 h-4" />
-              </a>
+              <button 
+                onClick={() => triggerToast('LoopPC YouTube channel available soon!')}
+                className="w-10 h-10 rounded-lg bg-mid-gray/50 border border-border-gray flex items-center justify-center text-gray-500 hover:text-white hover:bg-[#FF0000] hover:border-[#FF0000] transition-all cursor-pointer group/social"
+              >
+                <Youtube className="w-5 h-5" />
+              </button>
             </div>
           </div>
 
@@ -91,7 +113,7 @@ export default function Footer() {
         </div>
 
         <div className="mt-12 pt-8 border-t border-border-gray flex flex-col sm:flex-row justify-between items-center gap-4">
-          <p className="text-gray-600 text-xs">© 2026 LoopPC. Built for the Indian PC building community.</p>
+          <p className="text-gray-600 text-xs text-center sm:text-left">© 2026 LoopPC. Built for the Indian PC building community.</p>
           <div className="flex items-center gap-6 text-xs text-gray-600">
             <a href="#" className="hover:text-foreground transition-colors">Privacy</a>
             <a href="#" className="hover:text-foreground transition-colors">Terms</a>
@@ -99,6 +121,26 @@ export default function Footer() {
           </div>
         </div>
       </div>
+
+      {/* Aesthetic Toast Notification */}
+      <AnimatePresence>
+        {toast.visible && (
+          <motion.div
+            initial={{ opacity: 0, y: 20, x: '-50%' }}
+            animate={{ opacity: 1, y: 0, x: '-50%' }}
+            exit={{ opacity: 0, y: 20, x: '-50%' }}
+            className="fixed bottom-10 left-1/2 z-50 px-6 py-3 rounded-xl border border-neon-blue/30 bg-black/80 backdrop-blur-md shadow-2xl flex items-center gap-3"
+          >
+            <div className="w-8 h-8 rounded-full bg-neon-blue/10 flex items-center justify-center">
+              <Bell className="w-4 h-4 text-neon-blue" />
+            </div>
+            <span className="text-sm font-medium text-white whitespace-nowrap">
+              {toast.message}
+            </span>
+            <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-neon-blue/5 to-transparent pointer-events-none" />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </footer>
   );
 }

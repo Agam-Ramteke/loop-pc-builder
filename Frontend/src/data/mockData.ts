@@ -45,8 +45,8 @@ export const mockComponents: Component[] = [
   { id: "case-2", category: "Case", name: "Lian Li O11 Dynamic EVO", brand: "Lian Li", price: 149.99, provider: "PrimeABGB", image: "https://images.unsplash.com/photo-1587202372634-32705e3bf49c?q=80&w=400&auto=format&fit=crop", inStock: false, wattage: 15, specs: { FormFactor: "ATX Mid Tower", SidePanel: "Tempered Glass" } },
 
   // Power Supply
-  { id: "psu-1", category: "Power Supply", name: "Corsair RM850x (2021) 850W", brand: "Corsair", price: 139.99, provider: "MD Computers", image: "https://images.unsplash.com/photo-1585800473926-24e543666f7f?q=80&w=400&auto=format&fit=crop", inStock: true, wattage: 0, specs: { Wattage: "850W", Efficiency: "80+ Gold", Modular: "Full" } },
-  { id: "psu-2", category: "Power Supply", name: "EVGA SuperNOVA 1000 G6", brand: "EVGA", price: 179.99, provider: "PrimeABGB", image: "https://images.unsplash.com/photo-1585800473926-24e543666f7f?q=80&w=400&auto=format&fit=crop", inStock: true, wattage: 0, specs: { Wattage: "1000W", Efficiency: "80+ Gold", Modular: "Full" } },
+  { id: "psu-1", category: "Power Supply", name: "Corsair RM850x (2021) 850W", brand: "Corsair", price: 139.99, provider: "MD Computers", image: "https://images.unsplash.com/photo-1587202372634-32705e3bf49c?q=80&w=400&auto=format&fit=crop", inStock: true, wattage: 0, specs: { Wattage: "850W", Efficiency: "80+ Gold", Modular: "Full" } },
+  { id: "psu-2", category: "Power Supply", name: "EVGA SuperNOVA 1000 G6", brand: "EVGA", price: 179.99, provider: "PrimeABGB", image: "https://images.unsplash.com/photo-1587202372634-32705e3bf49c?q=80&w=400&auto=format&fit=crop", inStock: true, wattage: 0, specs: { Wattage: "1000W", Efficiency: "80+ Gold", Modular: "Full" } },
 
   // CPU Cooler
   { id: "cool-1", category: "CPU Cooler", name: "NZXT Kraken Elite 360", brand: "NZXT", price: 279.99, provider: "MD Computers", image: "https://images.unsplash.com/photo-1587202372634-32705e3bf49c?q=80&w=400&auto=format&fit=crop", inStock: true, wattage: 15, specs: { Type: "Liquid", RadiatorSize: "360mm" } },

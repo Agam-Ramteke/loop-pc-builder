@@ -8,6 +8,7 @@ import {
   ArrowRight, Zap, Target, Cpu, HardDrive, MemoryStick, Monitor,
   Fan, Box, BatteryCharging, ChevronRight, TrendingDown,
   MessageCircle, ArrowUpRight, ThumbsUp, BookOpen, Sparkles,
+  Activity, CircuitBoard, Database, PlugZap, Layout,
 } from 'lucide-react';
 import { Component } from '@/data/mockData';
 import { blogPosts, BlogPost } from '@/data/blogData';
@@ -18,12 +19,12 @@ import AnimatedSection from '@/components/AnimatedSection';
 // ─── Category Icons Map ────────────────────────────────────────────
 const CATEGORIES = [
   { name: 'CPU', label: 'Processors', icon: Cpu, color: '#4285F4' },
-  { name: 'Video Card', label: 'Graphics Cards', icon: Monitor, color: '#EA4335' },
-  { name: 'Motherboard', label: 'Motherboards', icon: HardDrive, color: '#34A853' },
+  { name: 'Video Card', label: 'Graphics Cards', icon: Layout, color: '#EA4335' },
+  { name: 'Motherboard', label: 'Motherboards', icon: CircuitBoard, color: '#34A853' },
   { name: 'Memory', label: 'RAM', icon: MemoryStick, color: '#FBBC04' },
-  { name: 'Storage', label: 'Storage', icon: HardDrive, color: '#4285F4' },
+  { name: 'Storage', label: 'Storage', icon: Database, color: '#4285F4' },
   { name: 'Case', label: 'Cases', icon: Box, color: '#EA4335' },
-  { name: 'Power Supply', label: 'Power Supplies', icon: BatteryCharging, color: '#34A853' },
+  { name: 'Power Supply', label: 'Power Supplies', icon: PlugZap, color: '#34A853' },
   { name: 'CPU Cooler', label: 'CPU Coolers', icon: Fan, color: '#FBBC04' },
 ];
 
@@ -43,7 +44,7 @@ interface DealItem {
 // ═══════════════════════════════════════════════════════════════════
 function HeroSection() {
   return (
-    <section className="relative w-full min-h-[45vh] flex flex-col items-center justify-center border-b border-border-gray overflow-hidden bg-dark-gray py-16 md:py-20">
+    <section className="relative w-full min-h-[45vh] flex flex-col items-center justify-center border-b border-border-gray overflow-hidden bg-dark-gray pt-16 pb-12 md:pt-20 md:pb-14">
       {/* Subtle gradient blobs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-[30%] -right-[10%] w-[60%] h-[120%] bg-neon-blue/[0.04] rounded-full blur-[100px]" />
@@ -73,34 +74,12 @@ function HeroSection() {
             Build Your{' '}
           </motion.span>
           <motion.span 
-            className="text-transparent bg-clip-text bg-gradient-to-r from-neon-blue via-blue-400 to-neon-blue/80 relative"
-            initial={{ opacity: 0, filter: 'blur(8px)' }}
-            animate={{ opacity: 1, filter: 'blur(0px)' }}
-            transition={{ 
-              opacity: { duration: 1, delay: 0.5 },
-              filter: { duration: 1.2, delay: 0.5 },
-            }}
+            className="text-transparent bg-clip-text bg-gradient-to-r from-neon-blue via-cyan-400 to-neon-blue font-black tracking-tighter"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 1, delay: 0.5 }}
           >
             Dream PC
-            {/* Animated Cloud Layer */}
-            <motion.span 
-              className="absolute inset-0 text-transparent bg-clip-text pointer-events-none"
-              style={{
-                backgroundImage: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.1) 15%, rgba(255,255,255,0.6) 25%, rgba(255,255,255,0.1) 35%, transparent 50%, rgba(255,255,255,0.4) 75%, transparent 100%)',
-                backgroundSize: '400% 100%',
-                WebkitBackgroundClip: 'text',
-              }}
-              animate={{ 
-                backgroundPosition: ['100% 0%', '-100% 0%'],
-              }}
-              transition={{ 
-                duration: 20, 
-                repeat: Infinity, 
-                ease: "linear" 
-              }}
-            >
-              Dream PC
-            </motion.span>
           </motion.span>
         </motion.h1>
         <motion.p 
@@ -152,7 +131,7 @@ function HeroSection() {
 // ═══════════════════════════════════════════════════════════════════
 function CategoryNavSection() {
   return (
-    <section className="py-16 bg-background border-b border-border-gray">
+    <section className="pt-12 pb-16 bg-background border-b border-border-gray">
       <div className="container mx-auto px-4">
         <AnimatedSection>
           <div className="text-center mb-10">
@@ -164,20 +143,32 @@ function CategoryNavSection() {
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
           {CATEGORIES.map((cat, i) => (
             <AnimatedSection key={cat.name} delay={i * 0.04}>
-              <Link
-                href={`/browse?category=${encodeURIComponent(cat.name)}`}
-                className="group flex flex-col items-center gap-3 p-5 rounded-2xl border border-border-gray bg-mid-gray/30 hover:bg-mid-gray hover:border-gray-400 dark:hover:border-gray-600 transition-all duration-300"
-              >
-                <div
-                  className="w-12 h-12 rounded-xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110"
-                  style={{ backgroundColor: `${cat.color}15` }}
+                <Link
+                  href={`/browse?category=${encodeURIComponent(cat.name)}`}
+                  className="group relative flex flex-col items-center justify-center gap-4 p-6 aspect-square rounded-[2rem] border border-border-gray bg-mid-gray/20 backdrop-blur-md transition-all duration-500 hover:scale-[1.05] hover:border-opacity-100 border-opacity-40 overflow-hidden active:scale-95"
+                  style={{ 
+                    boxShadow: `inset 0 0 20px ${cat.color}05`,
+                    borderColor: `${cat.color}20`
+                  }}
                 >
-                  <cat.icon className="w-5 h-5" style={{ color: cat.color }} />
-                </div>
-                <span className="text-xs font-medium text-gray-500 group-hover:text-foreground transition-colors text-center leading-tight">
-                  {cat.label}
-                </span>
-              </Link>
+                  {/* Subtle Background Glow on Hover */}
+                  <div className="absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-500" style={{ backgroundColor: cat.color }} />
+                  
+                  {/* Bottom Accent Glow */}
+                  <div 
+                    className="absolute bottom-0 left-0 right-0 h-[2px] scale-x-0 group-hover:scale-x-50 transition-transform duration-500 origin-center blur-[1px]" 
+                    style={{ backgroundColor: cat.color, boxShadow: `0 0 15px ${cat.color}` }} 
+                  />
+                  
+                  <cat.icon 
+                    className="w-10 h-10 transition-all duration-500 group-hover:scale-110 group-hover:drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]" 
+                    style={{ color: cat.color }} 
+                  />
+                  
+                  <span className="text-[10px] font-bold text-gray-500 group-hover:text-foreground transition-colors text-center uppercase tracking-[0.2em] leading-none">
+                    {cat.label}
+                  </span>
+                </Link>
             </AnimatedSection>
           ))}
         </div>

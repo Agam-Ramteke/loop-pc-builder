@@ -7,6 +7,7 @@ import {
   createResolvedNameExpression,
   resolveImageUrl,
 } from '@/lib/componentData';
+import { cacheGet, cacheSet } from '@/lib/redis';
 
 export interface DealItem {
   id: string;
@@ -18,8 +19,16 @@ export interface DealItem {
   image: string;
 }
 
+const CACHE_KEY = 'components:deals:v1';
+const CACHE_TTL_SECONDS = 300;
+
 export async function GET() {
   try {
+    const cached = await cacheGet<DealItem[]>(CACHE_KEY);
+    if (cached) {
+      return NextResponse.json(cached, { status: 200 });
+    }
+
     const client = await clientPromise;
     const db = client.db('PC_Parts');
 
@@ -113,6 +122,8 @@ export async function GET() {
       .flat()
       .sort((a, b) => b.discountPercent - a.discountPercent || a.salePrice - b.salePrice)
       .slice(0, 8);
+
+    void cacheSet(CACHE_KEY, topDeals, CACHE_TTL_SECONDS);
 
     return NextResponse.json(topDeals, { status: 200 });
   } catch (error) {

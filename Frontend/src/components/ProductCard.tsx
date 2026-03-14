@@ -19,21 +19,21 @@ export default function ProductCard({ component }: ProductCardProps) {
     <div className="bg-mid-gray border border-border-gray rounded-lg overflow-hidden hover:border-neon-blue transition-colors group flex flex-col h-full">
       <Link 
         href={`/product/${component.id}`} 
-        className="block relative h-56 bg-white shrink-0" 
-        style={{ maskImage: 'linear-gradient(to bottom, black 65%, transparent 100%)', WebkitMaskImage: 'linear-gradient(to bottom, black 65%, transparent 100%)' }}
+        className="block relative h-48 bg-white shrink-0" 
+        style={{ maskImage: 'linear-gradient(to bottom, black 75%, transparent 100%)', WebkitMaskImage: 'linear-gradient(to bottom, black 75%, transparent 100%)' }}
       >
         <Image 
           src={component.image} 
           alt={component.name}
           fill
-          className="object-contain p-6 group-hover:scale-[1.15] transition-transform duration-500 ease-out mix-blend-multiply"
+          className="object-contain p-6 group-hover:scale-[1.1] transition-transform duration-500 ease-out mix-blend-multiply"
         />
         {component.inStock ? (
-          <span className="absolute top-2 right-2 bg-neon-green/20 text-neon-green text-xs font-bold px-2 py-1 rounded">
+          <span className="absolute top-2 right-2 bg-neon-green/20 text-neon-green text-[10px] font-bold px-1.5 py-0.5 rounded">
             IN STOCK
           </span>
         ) : (
-          <span className="absolute top-2 right-2 bg-red-500/20 text-red-500 text-xs font-bold px-2 py-1 rounded">
+          <span className="absolute top-2 right-2 bg-red-500/20 text-red-500 text-[10px] font-bold px-1.5 py-0.5 rounded">
             OUT OF STOCK
           </span>
         )}
@@ -41,19 +41,21 @@ export default function ProductCard({ component }: ProductCardProps) {
       
       <div className="p-4 flex flex-col flex-grow">
         <div className="flex justify-between items-start mb-1">
-          <div className="text-xs text-gray-400">{component.brand}</div>
-          <div className="text-[10px] font-bold text-neon-blue uppercase tracking-tighter opacity-70">
+          <div className="text-[10px] text-gray-400 font-medium">{component.brand}</div>
+          <div className="text-[9px] font-bold text-neon-blue uppercase tracking-tighter opacity-70">
             {component.provider}
           </div>
         </div>
-        <Link href={`/product/${component.id}`} className="font-bold text-foreground mb-2 hover:text-neon-blue transition-colors line-clamp-2">
+        <Link href={`/product/${component.id}`} className="text-sm font-bold text-foreground mb-3 hover:text-neon-blue transition-colors line-clamp-2 h-10 leading-tight">
           {component.name}
         </Link>
         
-        <div className="text-sm text-gray-400 flex-grow mb-4">
-          <ul className="space-y-1">
+        <div className="text-[11px] text-gray-400 flex-grow mb-4 overflow-hidden">
+          <ul className="space-y-1.5">
             {Object.entries(component.specs).slice(0, 3).map(([key, value]) => (
-              <li key={key}><span className="text-gray-500">{key}:</span> {value}</li>
+              <li key={key} className="line-clamp-1">
+                <span className="text-gray-500">{key}:</span> {value}
+              </li>
             ))}
           </ul>
         </div>

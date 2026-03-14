@@ -8,7 +8,7 @@ services:
       - "8000:8000"
     volumes:
       - ./Backend:/app
-      - ./requirements.txt:/app/requirements.txt
+      - ./Backend/requirements.txt:/app/requirements.txt
     environment:
       - MONGO_URI=${MONGO_URI:-mongodb://mongodb:27017/loop-pc-builder}
       - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
@@ -32,10 +32,12 @@ services:
       - /app/.next
     environment:
       - MONGO_URI=${MONGO_URI:-mongodb://mongodb:27017/loop-pc-builder}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
       - NEXT_PUBLIC_API_URL=http://localhost:8000
     depends_on:
       - python-api
       - mongodb
+      - redis
     networks:
       - app-network
 
