@@ -1,4 +1,4 @@
-# Loop – Premium PC Part Tracker (India)
+# Loop – PC Part Picker (India)
 
 **Loop** is a high-performance PC component pricing aggregator designed for the Indian market. It combines a fleet of asynchronous Python scrapers with a cutting-edge Next.js 16 frontend to provide a seamless browsing experience with real-time (cached) pricing from top retailers.
 
