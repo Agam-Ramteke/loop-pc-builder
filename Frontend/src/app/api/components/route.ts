@@ -51,18 +51,31 @@ function extractWattage(title: string, specs: any): number {
   return 0;
 }
 
+function parsePositiveInt(value: string | null, fallback: number, max?: number): number {
+  const parsed = Number.parseInt(value ?? '', 10);
+  if (!Number.isFinite(parsed) || parsed < 1) return fallback;
+  if (max !== undefined) return Math.min(parsed, max);
+  return parsed;
+}
+
+function parseOptionalNumber(value: string | null): number | null {
+  if (value === null) return null;
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const categoryQuery = searchParams.get('category');
     const searchQuery = searchParams.get('search');
     const sortBy = searchParams.get('sort');
-    const page = parseInt(searchParams.get('page') || '1', 10);
-    const limit = Math.min(parseInt(searchParams.get('limit') || '20', 10), 100); // cap page size at 100
+    const page = parsePositiveInt(searchParams.get('page'), 1);
+    const limit = parsePositiveInt(searchParams.get('limit'), 20, 100); // cap page size at 100
 
     // FIX 3 — Read price range from query params so filtering happens server-side
-    const minPrice = searchParams.has('minPrice') ? parseFloat(searchParams.get('minPrice')!) : null;
-    const maxPrice = searchParams.has('maxPrice') ? parseFloat(searchParams.get('maxPrice')!) : null;
+    const minPrice = parseOptionalNumber(searchParams.get('minPrice'));
+    const maxPrice = parseOptionalNumber(searchParams.get('maxPrice'));
     const inStockOnly = searchParams.get('inStock') === 'true';
 
     const client = await clientPromise;
