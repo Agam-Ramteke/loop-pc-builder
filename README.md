@@ -14,11 +14,13 @@
   - **PrimeABGB**: Recent integration focusing on precise specification extraction.
 - **Premium User Interface**
   - **Antigravity Design**: Physics-based canvas starfield, interactive cursor particles, and sleek glassmorphism.
-  - **Performance Optimized**: Uses CSS blend modes for product images to avoid expensive background removal logic while maintaining a clean look.
+  - **Premium Interactions**: Custom animated sorting dropdowns, tactile pagination with motion-feedback, and streamlined category navigation.
+  - **Search & Filter**: Refactored search engine with URL state persistence and integrated "One-Click Clear" functionality.
+  - **Performance Optimized**: Uses CSS blend modes for product images to avoid expensive background removal logic.
   - **Dynamic Architecture**: Built on **Next.js 16 (App Router)** and **React 19**.
 - **Robust API & Caching**
   - Unified data API at `/api/components` using MongoDB aggregations.
-  - **Redis Integration**: High-speed caching layer to ensure sub-millisecond response times for frequent queries.
+  - **Redis Cache Layer**: High-speed caching (sub-10ms response) for product searches and API rate-limiting protection.
 
 ---
 
@@ -26,6 +28,8 @@
 
 ```text
 ├── Backend/                 # Python Data Ingestion Layer
+│   ├── .venv/               # Isolated Service Dependencies
+│   ├── requirements.txt     # Backend specific packages
 │   └── Data_Collection/     # Retailer-specific scrapers
 │       ├── MD_computers/    # Bulk + Async ingest pipeline
 │       ├── Elite Hubs/      # Processor scrapers
@@ -48,20 +52,20 @@ docker-compose up -d mongodb redis
 ```
 
 ### 2. Backend (Scrapers)
-Scrapers ingest data directly into MongoDB. Ensure you have Python 3.10+ installed.
+The backend now maintains its own isolated environment inside the `/Backend` directory.
+
 ```bash
+cd Backend
+# Create and activate environment (if not already done)
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
 # Install dependencies
 pip install -r requirements.txt
 
-# Run MD Computers Scraper (Example)
-cd Backend/Data_Collection/Scrapers/MD_computers
-python Bulk_data.py --all
+# Run Scrapers
+cd Data_Collection/Scrapers/MD_computers
 python Async_Scraper.py --all
-
-# Run PrimeABGB Scraper (Example)
-cd ../PrimeABGB
-python Bulk_data.py
-python Async_Scraper.py
 ```
 
 ### 3. Frontend (Web UI)
