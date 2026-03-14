@@ -57,7 +57,7 @@ export const tweets: Tweet[] = [
     avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=overclockking',
     displayName: 'Overclock King',
     handle: '@oc_king_india',
-    content: 'PSA: The Deepcool AK620 is ₹2,499 on MD Computers right now. Best air cooler deal I\'ve seen all year. Grab it before it\'s gone.',
+    content: 'PSA: The Deepcool AK620 is ₹2,499 on PrimeABGB right now. Best air cooler deal I\'ve seen all year. Grab it before it\'s gone.',
     likes: 567,
     retweets: 189,
     timestamp: '12h',
@@ -89,7 +89,7 @@ export const redditPosts: RedditPost[] = [
   },
   {
     id: 'reddit-3',
-    title: '[India] Best places to buy PC parts online? MD Computers vs Amazon vs Vedant',
+    title: '[India] Best places to buy PC parts online? PrimeABGB vs Amazon vs Vedant',
     author: 'u/indian_pcbuilder',
     upvotes: 934,
     comments: 256,

@@ -1,0 +1,30 @@
+{
+  "total_docs": 523,
+  "fields": {
+    "capacity_gb": {
+      "fill_rate_pct": 99.4,
+      "filled": 520,
+      "total": 523
+    },
+    "ddr_type": {
+      "fill_rate_pct": 96.7,
+      "filled": 506,
+      "total": 523
+    },
+    "dimm_type": {
+      "fill_rate_pct": 82.0,
+      "filled": 429,
+      "total": 523
+    },
+    "modules": {
+      "fill_rate_pct": 74.4,
+      "filled": 389,
+      "total": 523
+    },
+    "speed_mhz": {
+      "fill_rate_pct": 99.8,
+      "filled": 522,
+      "total": 523
+    }
+  }
+}

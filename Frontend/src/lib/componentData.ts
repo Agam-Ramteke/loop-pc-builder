@@ -180,7 +180,7 @@ export function mapMongoDocToComponent(doc: Record<string, unknown>, collectionN
     discountPercent,
     image: resolveImageUrl(doc.image_path),
     inStock: doc.out_of_stock !== true && price > 0,
-    provider: typeof doc.source === 'string' && doc.source.trim() !== '' ? doc.source : 'MD Computers',
+    provider: typeof doc.source === 'string' && doc.source.trim() !== '' ? doc.source : 'PrimeABGB',
     wattage: extractWattage(name, specs),
     specs,
   };
@@ -231,13 +231,6 @@ export function createResolvedOriginalPriceSourceExpression(): Document {
 }
 
 export function createPriceNumberExpression(source: unknown): Document {
-  if (source === '$price.original') {
-    return { $ifNull: ['$numericOriginalPrice', 0] };
-  }
-  if (source === '$price.discounted' || source === '$price') {
-    return { $ifNull: ['$numericPrice', 0] };
-  }
-
   // Fallback to parsing the string natively in MongoDB 4.4+
   let cleaned: Document = { 
     $convert: { input: source, to: 'string', onError: '0', onNull: '0' }

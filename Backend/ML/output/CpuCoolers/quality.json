@@ -1,0 +1,30 @@
+{
+  "total_docs": 249,
+  "fields": {
+    "cooler_type": {
+      "fill_rate_pct": 100.0,
+      "filled": 249,
+      "total": 249
+    },
+    "height_mm": {
+      "fill_rate_pct": 13.3,
+      "filled": 33,
+      "total": 249
+    },
+    "max_tdp_watts": {
+      "fill_rate_pct": 3.6,
+      "filled": 9,
+      "total": 249
+    },
+    "radiator_size_mm": {
+      "fill_rate_pct": 83.5,
+      "filled": 208,
+      "total": 249
+    },
+    "supported_sockets": {
+      "fill_rate_pct": 36.1,
+      "filled": 90,
+      "total": 249
+    }
+  }
+}

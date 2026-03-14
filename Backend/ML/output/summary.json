@@ -1,0 +1,48 @@
+{
+  "ran_at": "2026-03-14T19:50:00.447026+00:00",
+  "grand_total": 3484,
+  "grand_ok": 3484,
+  "grand_failed": 0,
+  "collections": {
+    "Processors": {
+      "total": 157,
+      "ok": 157,
+      "failed": 0
+    },
+    "Motherboards": {
+      "total": 619,
+      "ok": 619,
+      "failed": 0
+    },
+    "RAM": {
+      "total": 523,
+      "ok": 523,
+      "failed": 0
+    },
+    "GPUs": {
+      "total": 773,
+      "ok": 773,
+      "failed": 0
+    },
+    "SMPS": {
+      "total": 210,
+      "ok": 210,
+      "failed": 0
+    },
+    "CpuCoolers": {
+      "total": 249,
+      "ok": 249,
+      "failed": 0
+    },
+    "Cabinets": {
+      "total": 423,
+      "ok": 423,
+      "failed": 0
+    },
+    "Storage": {
+      "total": 530,
+      "ok": 530,
+      "failed": 0
+    }
+  }
+}

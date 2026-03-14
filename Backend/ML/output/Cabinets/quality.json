@@ -1,0 +1,40 @@
+{
+  "total_docs": 423,
+  "fields": {
+    "hdd_bays": {
+      "fill_rate_pct": 8.7,
+      "filled": 37,
+      "total": 423
+    },
+    "max_cooler_height_mm": {
+      "fill_rate_pct": 34.5,
+      "filled": 146,
+      "total": 423
+    },
+    "max_gpu_length_mm": {
+      "fill_rate_pct": 33.6,
+      "filled": 142,
+      "total": 423
+    },
+    "max_psu_length_mm": {
+      "fill_rate_pct": 29.8,
+      "filled": 126,
+      "total": 423
+    },
+    "radiator_support_mm": {
+      "fill_rate_pct": 19.1,
+      "filled": 81,
+      "total": 423
+    },
+    "ssd_bays": {
+      "fill_rate_pct": 10.9,
+      "filled": 46,
+      "total": 423
+    },
+    "supported_mobo_sizes": {
+      "fill_rate_pct": 100.0,
+      "filled": 423,
+      "total": 423
+    }
+  }
+}

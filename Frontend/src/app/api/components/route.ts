@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import type { Document } from 'mongodb';
+import type { Db, Document } from 'mongodb';
 import clientPromise from '@/lib/mongodb';
 import {
   CATEGORY_COLLECTIONS,
@@ -152,6 +152,31 @@ function buildSortStage(sortBy: string | null): Record<string, 1 | -1> {
   };
 }
 
+async function countMatchingComponents(
+  db: Db,
+  collectionsToQuery: string[],
+  options: Omit<Parameters<typeof buildBasePipeline>[0], 'collectionName'>,
+): Promise<number> {
+  const countResults = await Promise.all(
+    collectionsToQuery.map(async (collectionName) => {
+      const [countResult] = await db
+        .collection(collectionName)
+        .aggregate<{ totalCount: number }>([
+          ...buildBasePipeline({
+            collectionName,
+            ...options,
+          }),
+          { $count: 'totalCount' },
+        ])
+        .toArray();
+
+      return countResult?.totalCount ?? 0;
+    }),
+  );
+
+  return countResults.reduce((sum, count) => sum + count, 0);
+}
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -202,16 +227,17 @@ export async function GET(request: NextRequest) {
     const client = await clientPromise;
     const db = client.db('PC_Parts');
 
-    const { collectionName, pipeline } = buildUnionPipeline(collectionsToQuery, {
+    const queryOptions = {
       searchQuery,
       inStockOnly,
       minPrice: safeMinPrice,
       maxPrice: safeMaxPrice,
-    });
+    };
+    const { collectionName, pipeline } = buildUnionPipeline(collectionsToQuery, queryOptions);
 
     const sortStage = buildSortStage(sortBy);
 
-    const [docs, countResult] = await Promise.all([
+    const [docs, totalCount] = await Promise.all([
       db
         .collection(collectionName)
         .aggregate<Record<string, unknown>>([
@@ -221,16 +247,9 @@ export async function GET(request: NextRequest) {
           { $limit: limit },
         ])
         .toArray(),
-      db
-        .collection(collectionName)
-        .aggregate<{ totalCount: number }>([
-          ...pipeline,
-          { $count: 'totalCount' },
-        ])
-        .toArray(),
+      countMatchingComponents(db, collectionsToQuery, queryOptions),
     ]);
 
-    const totalCount = countResult[0]?.totalCount ?? 0;
     const data = docs.map((doc) => mapMongoDocToComponent(doc, String(doc.collName)));
 
     const payload = {

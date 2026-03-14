@@ -1,0 +1,30 @@
+{
+  "total_docs": 210,
+  "fields": {
+    "form_factor": {
+      "fill_rate_pct": 64.8,
+      "filled": 136,
+      "total": 210
+    },
+    "length_mm": {
+      "fill_rate_pct": 50.5,
+      "filled": 106,
+      "total": 210
+    },
+    "pcie_16pin_connectors": {
+      "fill_rate_pct": 1.0,
+      "filled": 2,
+      "total": 210
+    },
+    "pcie_8pin_connectors": {
+      "fill_rate_pct": 27.1,
+      "filled": 57,
+      "total": 210
+    },
+    "wattage": {
+      "fill_rate_pct": 91.9,
+      "filled": 193,
+      "total": 210
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "total_docs": 530,
+  "fields": {
+    "drive_type": {
+      "fill_rate_pct": 87.7,
+      "filled": 465,
+      "total": 530
+    },
+    "form_factor": {
+      "fill_rate_pct": 100.0,
+      "filled": 530,
+      "total": 530
+    },
+    "interface": {
+      "fill_rate_pct": 89.1,
+      "filled": 472,
+      "total": 530
+    }
+  }
+}

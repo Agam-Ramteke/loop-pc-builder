@@ -2,16 +2,17 @@
 
 **Loop** is a high-performance PC component pricing aggregator designed for the Indian market. It combines a fleet of asynchronous Python scrapers with a cutting-edge Next.js 16 frontend to provide a seamless browsing experience with real-time (cached) pricing from top retailers.
 
-> **Status (March 2026):** Completely migrated to Next.js 16 (Turbopack) with a centralized API layer and integrated Redis caching. Scraper support includes MD Computers, EliteHubs, and PrimeABGB.
+> **Status (March 2026):** Completely migrated to Next.js 16 (Turbopack). Scraper support focused on **PrimeABGB** (high spec density) and **EliteHubs**. MD Computers scraper deprecated and removed.
 
 ---
 
 ## ⚡ Core Features
 
 - **Multi-Retailer Scraping Engine**
-  - **MD Computers**: Full category coverage with async ingest pipeline.
+  - **PrimeABGB**: Main data source focusing on precise specification extraction and compatibility attributes.
   - **EliteHubs**: Processor-specific scrapers with automated pruning.
-  - **PrimeABGB**: Recent integration focusing on precise specification extraction.
+- **ML & Feature Extraction**
+  - **Compatibility Pipeline**: specialized logic to extract sockets (LGA1700, AM5), DDR types, TDP, and dimensions into a unified format for build-compatibility checks.
 - **Premium User Interface**
   - **Antigravity Design**: Physics-based canvas starfield, interactive cursor particles, and sleek glassmorphism.
   - **Premium Interactions**: Custom animated sorting dropdowns, tactile pagination with motion-feedback, and streamlined category navigation.
@@ -31,9 +32,9 @@
 │   ├── .venv/               # Isolated Service Dependencies
 │   ├── requirements.txt     # Backend specific packages
 │   └── Data_Collection/     # Retailer-specific scrapers
-│       ├── MD_computers/    # Bulk + Async ingest pipeline
 │       ├── Elite Hubs/      # Processor scrapers
-│       └── PrimeABGB/       # Recent specialized scraper
+│       └── PrimeABGB/       # Specialized WooCommerce scraper
+│   └── ML/                  # Feature Extraction & Normalization
 ├── Frontend/                # Next.js 16 Web Application
 │   ├── src/app/api/         # Unified API routes (Next.js)
 │   ├── src/lib/             # Shared logic (Redis, MongoDB, UI components)
@@ -64,8 +65,12 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
 # Run Scrapers
-cd Data_Collection/Scrapers/MD_computers
+cd Data_Collection/Scrapers/PrimeABGB
 python Async_Scraper.py --all
+
+# Run Feature Extraction
+cd ../../ML
+python feature_extraction_pipeline.py --collection GPUs
 ```
 
 ### 3. Frontend (Web UI)
