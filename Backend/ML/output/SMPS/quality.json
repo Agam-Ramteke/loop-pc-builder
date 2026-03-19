@@ -1,27 +1,47 @@
 {
   "total_docs": 210,
   "fields": {
+    "atx12v_connectors": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 210
+    },
+    "efficiency_rating": {
+      "fill_rate_pct": 96.7,
+      "filled": 203,
+      "total": 210
+    },
+    "fan_size_mm": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 210
+    },
     "form_factor": {
-      "fill_rate_pct": 64.8,
-      "filled": 136,
+      "fill_rate_pct": 41.9,
+      "filled": 88,
       "total": 210
     },
-    "length_mm": {
-      "fill_rate_pct": 50.5,
-      "filled": 106,
+    "modularity": {
+      "fill_rate_pct": 58.1,
+      "filled": 122,
       "total": 210
     },
-    "pcie_16pin_connectors": {
-      "fill_rate_pct": 1.0,
-      "filled": 2,
+    "mtbf_hours": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
       "total": 210
     },
-    "pcie_8pin_connectors": {
-      "fill_rate_pct": 27.1,
-      "filled": 57,
+    "pcie_connectors": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
       "total": 210
     },
-    "wattage": {
+    "sata_connectors": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 210
+    },
+    "wattage_w": {
       "fill_rate_pct": 91.9,
       "filled": 193,
       "total": 210

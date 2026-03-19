@@ -22,6 +22,104 @@ from urllib.parse import urlparse
 import requests
 from bs4 import BeautifulSoup
 
+# ─────────────────────────────────────────
+#  DATA CLEANING & STANDARDIZATION
+# ─────────────────────────────────────────
+GPU_KEY_MAP = {
+    # VRAM / memory
+    "vram_gb": [
+        "Video Memory", "Graphic Card Memory Size", "MEMORY SIZE",
+        "Memory Size", "VRAM", "Memory", "Standard Memory Config",
+        "GDDR6 Graphics Memory", "Graphics Card Ram Size"
+    ],
+    # Core count
+    "shader_count": [
+        "CUDA Core", "CUDA Cores", "CUDA® Cores", "CUDA® CORES",
+        "Stream Processors", "Stream Processor", "Cuda Cores",
+        "GPU Core (CUDA Core)", "GPU CORE (CUDA CORE)"
+    ],
+    "tdp_w": [
+        "Power Consumption", "POWER CONSUMPTION", "TDP",
+        "Typical Board Power", "Max Power Consumption"
+    ],
+    "boost_clock_mhz": [
+        "Boost Clock", "Boost Clock (MHz)", "Engine Clock",
+        "Core Clock", "CORE CLOCKS", "Graphic Engine"
+    ],
+    "memory_bus_bit": [
+        "Memory Interface", "Memory Bus", "MEMORY BUS",
+        "Memory Interface Width", "Memory Bus Width"
+    ],
+    "pcie_interface": [
+        "Interface", "Bus Standard", "Card Bus", "PCI Express"
+    ],
+    "recommended_psu_w": [
+        "Recommended PSU", "RECOMMENDED PSU", "Recommended Power Supply",
+        "Power Supply", "Minimum System Power Requirement (W)"
+    ],
+    "directx_version": [
+        "DirectX", "DIRECTX", "DIRECTX VERSION SUPPORT", "Direct X"
+    ],
+    "output_ports": [
+        "Output", "Display Outputs", "Outputs", "OUTPUT", "Ports"
+    ],
+}
+
+def extract_field(specs: dict, aliases: list) -> str | None:
+    for alias in aliases:
+        # First try exact match
+        val = specs.get(alias)
+        # If not, try case-insensitive
+        if not val:
+            val = next((v for k, v in specs.items() if k.lower() == alias.lower()), None)
+        if val and str(val).strip():
+            return str(val).strip()
+    return None
+
+def parse_price_inr(price_str: str) -> int | None:
+    if not price_str: return None
+    cleaned = re.sub(r'[₹,\s]', '', str(price_str))
+    try:
+        return int(float(cleaned))
+    except ValueError:
+        return None
+
+def parse_memory_gb(val: str) -> float | None:
+    if not val: return None
+    val = str(val).lower()
+    match = re.search(r'([\d.]+)\s*(tb|gb|mb)', val)
+    if not match:
+        return None
+    num, unit = float(match.group(1)), match.group(2)
+    return num * 1024 if unit == 'tb' else num / 1024 if unit == 'mb' else num
+
+def parse_freq_mhz(val: str) -> float | None:
+    if not val: return None
+    val = str(val).lower().replace(',', '')
+    match = re.search(r'([\d.]+)\s*(ghz|mhz)', val)
+    if not match:
+        return None
+    num, unit = float(match.group(1)), match.group(2)
+    return num * 1000 if unit == 'ghz' else num
+
+def parse_watts(val: str) -> float | None:
+    if not val: return None
+    val = str(val).replace(',', '')
+    match = re.search(r'([\d.]+)\s*[wW]', val)
+    return float(match.group(1)) if match else None
+
+def get_price(item: dict) -> dict:
+    p = item.get("price", {})
+    return {
+        "price_current": parse_price_inr(p.get("discounted", "")),
+        "price_original": parse_price_inr(p.get("original", "")),
+        "discount_pct": int(str(p.get("discount", "0%")).replace("%", "").replace("-", "").strip() or 0),
+    }
+
+def normalize_image_path(path: str) -> str | None:
+    if not path: return None
+    return os.path.basename(path.replace("\\", "/"))
+
 log = logging.getLogger(__name__)
 
 SOURCE_NAME    = "PrimeABGB"
@@ -184,6 +282,15 @@ def upsert_product(collection, data: dict) -> None:
         if disc:
             set_fields["price.discount"] = disc
 
+    # Check for new price fields from get_price
+    if "price_current" in price:
+        if price.get("price_current") is not None:
+            set_fields["price.price_current"] = price["price_current"]
+        if price.get("price_original") is not None:
+            set_fields["price.price_original"] = price["price_original"]
+        if price.get("discount_pct") is not None:
+            set_fields["price.discount_pct"] = price["discount_pct"]
+
     collection.update_one(
         {"url": url},
         {
@@ -309,6 +416,44 @@ def parse_product_page(
             value_el = row.select_one("td.woocommerce-product-attributes-item__value")
             if label_el and value_el:
                 specifications[label_el.get_text(strip=True)] = value_el.get_text(strip=True)
+
+    # ── Canonicalize & Clean Specifications ──
+    junk_keys = {"General", "Essentials", "Thermals & Package"}
+    coll_name = collection.name if collection is not None else ""
+    
+    if coll_name == "GPUs":
+        cleaned_specs = {}
+        for canon_key, aliases in GPU_KEY_MAP.items():
+            raw_val = extract_field(specifications, aliases)
+            if raw_val is not None:
+                if canon_key == "vram_gb":
+                    cleaned_specs[canon_key] = parse_memory_gb(raw_val) or raw_val
+                elif canon_key in ["boost_clock_mhz"]:
+                    cleaned_specs[canon_key] = parse_freq_mhz(raw_val) or raw_val
+                elif canon_key in ["tdp_w", "recommended_psu_w"]:
+                    cleaned_specs[canon_key] = parse_watts(raw_val) or raw_val
+                elif canon_key == "shader_count":
+                    try:
+                        cleaned_specs[canon_key] = int(re.sub(r'\D', '', raw_val))
+                    except ValueError:
+                        cleaned_specs[canon_key] = raw_val
+                else:
+                    cleaned_specs[canon_key] = raw_val
+
+        # Add remaining non-empty, non-junk keys
+        mapped_aliases = {a.lower() for aliases in GPU_KEY_MAP.values() for a in aliases}
+        for k, v in specifications.items():
+            if k in junk_keys: continue
+            if not v or not str(v).strip() or str(v).strip() == "-": continue
+            if k.lower() not in mapped_aliases:
+                cleaned_specs[k] = v
+        specifications = cleaned_specs
+    else:
+        # For non-GPUs, just drop junk and empty
+        for k in list(specifications.keys()):
+            v = specifications[k]
+            if k in junk_keys or not v or not str(v).strip() or str(v).strip() == "-":
+                del specifications[k]
 
     # ── Image ──
     local_image_path = None

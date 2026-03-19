@@ -58,7 +58,7 @@ export default function Navbar() {
   const { totalPrice } = useBuild();
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-gradient-to-b from-background via-background/90 to-transparent pb-4 pt-2">
+    <header className="sticky top-0 z-50 w-full bg-gradient-to-b from-background via-background/90 to-transparent">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         
         {/* Logo & Brand */}
@@ -71,7 +71,7 @@ export default function Navbar() {
           <nav className="hidden md:flex items-center gap-6 text-sm font-semibold text-gray-500 dark:text-gray-400">
             <Link href="/browse" className="hover:text-foreground transition-colors">Browse Components</Link>
             <Link href="/builder" className="hover:text-foreground transition-colors">PC Builder</Link>
-            <Link href="/#blog" className="hover:text-foreground transition-colors">Blog</Link>
+            <Link href="/blog" className="hover:text-foreground transition-colors">Blog</Link>
             <Link href="#" className="hover:text-foreground transition-colors">Saved Builds</Link>
           </nav>
         </div>

@@ -1,9 +1,14 @@
 {
   "total_docs": 619,
   "fields": {
-    "ddr_type": {
-      "fill_rate_pct": 80.5,
-      "filled": 498,
+    "audio_codec": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 619
+    },
+    "chipset": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
       "total": 619
     },
     "form_factor": {
@@ -11,44 +16,79 @@
       "filled": 619,
       "total": 619
     },
+    "has_bluetooth": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 619
+    },
+    "has_wifi": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 619
+    },
+    "lan_speed_gbps": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 619
+    },
     "m2_slots": {
-      "fill_rate_pct": 37.0,
-      "filled": 229,
+      "fill_rate_pct": 0.0,
+      "filled": 0,
       "total": 619
     },
-    "max_ram_gb": {
-      "fill_rate_pct": 67.0,
-      "filled": 415,
+    "max_memory_gb": {
+      "fill_rate_pct": 66.9,
+      "filled": 414,
       "total": 619
     },
-    "max_ram_speed_mhz": {
+    "max_memory_speed_mhz": {
       "fill_rate_pct": 27.6,
       "filled": 171,
       "total": 619
     },
-    "pcie_x16_slots": {
-      "fill_rate_pct": 100.0,
-      "filled": 619,
+    "memory_slots": {
+      "fill_rate_pct": 5.5,
+      "filled": 34,
       "total": 619
     },
-    "ram_slots": {
-      "fill_rate_pct": 39.9,
-      "filled": 247,
+    "memory_type": {
+      "fill_rate_pct": 80.5,
+      "filled": 498,
+      "total": 619
+    },
+    "pcie_version": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 619
+    },
+    "platform": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
       "total": 619
     },
     "sata_ports": {
-      "fill_rate_pct": 31.3,
-      "filled": 194,
+      "fill_rate_pct": 0.0,
+      "filled": 0,
       "total": 619
     },
     "socket": {
-      "fill_rate_pct": 100.0,
-      "filled": 619,
+      "fill_rate_pct": 37.6,
+      "filled": 233,
       "total": 619
     },
-    "supported_cpu_gens": {
-      "fill_rate_pct": 37.2,
-      "filled": 230,
+    "supports_ecc": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 619
+    },
+    "usb_rear_json": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 619
+    },
+    "wifi_standard": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
       "total": 619
     }
   }

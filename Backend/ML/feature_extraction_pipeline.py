@@ -444,87 +444,36 @@ def _modular(raw: str, name: str = "") -> str:
 #  MEMORY BUS        "256-bit"
 #    → memory_bus_bit=256
 #    Not a compatibility field but useful for the UI display.
-
 def extract_gpu(doc: dict) -> dict:
-    # ── Raw field reads ────────────────────────────────────────────
     raw_memory_type = _spec(doc, "Memory Type", "MEMORY TYPE")
-    raw_memory     = _spec(doc,
-        "MEMORY", "Memory", "Video Memory", "VRAM",
-        "Graphics Memory", "Graphic Card Memory Size",
-        "Memory Size", "Memory Size/Bus",
-    )
-    raw_interface  = _spec(doc,
-        "Bus Standard", "PCI Express", "Card Bus",
-        "INTERFACE", "PCI EXPRESS", "PCI-E",
-        "Bus Interface", "Bus Type", "Interface",
-    )
-    raw_tdp        = _spec(doc,
-        "POWER CONSUMPTION", "TDP", "Board Power",
-        "Total Graphics Power", "Max Power Consumption",
-        "Power Consumption", "TBP", "Total Board Power",
-    )
-    raw_psu        = _spec(doc,
-        "RECOMMENDED PSU", "Recommended PSU",
-        "Recommended System Power", "Minimum PSU Recommendation",
-        "Recommended Power Supply",
-    )
-    raw_dimensions = _spec(doc,
-        "CARD DIMENSION (MM)", "Card Dimension", "Card Dimensions",
-        "Card Dimension (mm)", "Dimensions", "Card Length",
-        "Form Factor",
-    )
-    raw_connectors = _spec(doc,
-        "POWER CONNECTORS", "Power Connectors", "Power Connector",
-        "PCIe Power Connector", "Power Input",
-        "External Power Connector",
-    )
-    raw_cuda       = _spec(doc,
-        "CUDA® CORES", "CUDA CORES", "CUDA Cores",
-        "Shader Units", "Stream Processors",
-    )
-    raw_clocks     = _spec(doc,
-        "CORE CLOCKS", "Core Clocks", "Engine Clock",
-        "Core Clock", "GPU Clock", "Boost Clock", "Base Clock",
-    )
-    raw_mem_bus    = _spec(doc,
-        "MEMORY BUS", "Memory Bus", "Memory Interface",
-        "MEMORY INTERFACE", "Memory Interface Width",
-        "Memory Size/Bus",
-    )
+    raw_memory = _spec(doc, "MEMORY", "Memory", "Video Memory", "VRAM", "Graphics Memory", "Graphic Card Memory Size", "Memory Size", "Memory Size/Bus")
+    raw_interface = _spec(doc, "Bus Standard", "PCI Express", "Card Bus", "INTERFACE", "PCI EXPRESS", "PCI-E", "Bus Interface", "Bus Type", "Interface")
+    raw_tdp = _spec(doc, "POWER CONSUMPTION", "TDP", "Board Power", "Total Graphics Power", "Max Power Consumption", "Power Consumption", "TBP", "Total Board Power")
+    raw_psu = _spec(doc, "RECOMMENDED PSU", "Recommended PSU", "Recommended System Power", "Minimum PSU Recommendation", "Recommended Power Supply")
+    raw_dimensions = _spec(doc, "CARD DIMENSION (MM)", "Card Dimension", "Card Dimensions", "Card Dimension (mm)", "Dimensions", "Card Length", "Form Factor")
+    raw_connectors = _spec(doc, "POWER CONNECTORS", "Power Connectors", "Power Connector", "PCIe Power Connector", "Power Input", "External Power Connector")
+    raw_cuda = _spec(doc, "CUDA® CORES", "CUDA CORES", "CUDA Cores", "Shader Units", "Stream Processors")
+    raw_clocks = _spec(doc, "CORE CLOCKS", "Core Clocks", "Engine Clock", "Core Clock", "GPU Clock", "Boost Clock", "Base Clock")
+    raw_mem_bus = _spec(doc, "MEMORY BUS", "Memory Bus", "Memory Interface", "MEMORY INTERFACE", "Memory Interface Width", "Memory Size/Bus")
 
-    # ── VRAM size and type from "16GB GDDR7" ──────────────────────
-    vram_gb, vram_type = _gpu_memory_features(
-        raw_memory,
-        raw_memory_type,
-        doc.get("name", ""),
-    )
-
-    # ── PCIe generation from "PCI Express® Gen 5" ─────────────────
-    # Strip symbols before parsing, but ignore display-output-only "Interface" fields.
-    pcie_gen: Optional[float] = None
+    vram_gb, vram_type = _gpu_memory_features(raw_memory, raw_memory_type, doc.get("name", ""))
+    
+    pcie_gen = None
     if raw_interface and re.search(r"PCI|GEN\s*\d", raw_interface, re.IGNORECASE):
-        pcie_raw_clean = re.sub(r"[^A-Za-z0-9.\s-]", " ", raw_interface)
+        pcie_raw_clean = re.sub(r"[^A-Za-z0-9.\\s-]", " ", raw_interface)
         pcie_gen = _pcie_version(pcie_raw_clean)
 
-    # ── TDP from "POWER CONSUMPTION: 360W" ────────────────────────
-    # PrimeABGB GPU TDPs can exceed 300W — raise the upper clamp to 800W
-    tdp_watts: Optional[int] = None
+    tdp_watts = None
     if raw_tdp and not _is_na(raw_tdp):
         m = re.search(r"(\d{1,4})\s*W\b", raw_tdp, re.IGNORECASE)
         if m:
             v = int(m.group(1))
-            if 5 <= v <= 800:       # ← 800W ceiling covers 600W flagship cards
+            if 5 <= v <= 800:
                 tdp_watts = v
 
-    # ── Recommended PSU from "850 W" ──────────────────────────────
-    psu_recommended: Optional[int] = None
-
+    psu_recommended = None
     if raw_psu and not _is_na(raw_psu):
         psu_recommended = _psu_watts(raw_psu)
-
-    # Fallback chain when PSU field is "N/A" or missing:
-    #   1. TDP + 150W system headroom  (standard rule)
-    #   2. VRAM tier estimate          (last resort for old low-end cards)
     if not psu_recommended:
         if tdp_watts:
             psu_recommended = tdp_watts + 150
@@ -535,441 +484,58 @@ def extract_gpu(doc: dict) -> dict:
             elif vram_gb >= 6:  psu_recommended = 550
             else:               psu_recommended = 450
 
-    # ── Card dimensions from "338 x 140 x 50 mm" ─────────────────
-    # Format: "L x W x H mm"  — we want all three
     length_mm, width_mm, slot_height_mm = _gpu_dimensions_mm(raw_dimensions)
 
-    # ── Power connector type from "16-pin x 1" ────────────────────
-    needs_power_connector: Optional[bool] = None
-    connector_type:        str            = ""
-
+    needs_power_connector = None
+    connector_type = ""
     if raw_connectors:
         if _is_na(raw_connectors):
             needs_power_connector = False
         else:
             needs_power_connector = True
-            # Identify connector standard
             s = raw_connectors.upper()
-            if "16" in s and "PIN" in s:
-                connector_type = "16-pin"       # 12VHPWR / 12V-2×6
-            elif "8" in s and "PIN" in s:
-                # "6+2" or "8-pin"
-                connector_type = "8-pin"
-            elif "6" in s and "PIN" in s:
-                connector_type = "6-pin"
-
-            # Count connectors: "16-pin x 1" → 1
+            if "16" in s and "PIN" in s: connector_type = "16-pin"
+            elif "8" in s and "PIN" in s: connector_type = "8-pin"
+            elif "6" in s and "PIN" in s: connector_type = "6-pin"
             count_m = re.search(r"[xX×]\s*(\d+)", raw_connectors)
-            if count_m:
-                connector_type += f" x{count_m.group(1)}"
+            if count_m: connector_type += f" x{count_m.group(1)}"
 
-    # ── CUDA / shader core count from "10752 Units" ───────────────
-    needs_power_connector, connector_type = _gpu_connector_details(raw_connectors)
-    if not raw_cuda:
-        raw_cuda = _spec(doc, "CUDA Core", "CUDAZ CORES", "CUDAŽ CORES")
-
-    cuda_cores: Optional[int] = None
+    cuda_cores = None
+    if not raw_cuda: raw_cuda = _spec(doc, "CUDA Core", "CUDAZ CORES", "CUDAŽ CORES")
     if raw_cuda and not _is_na(raw_cuda):
         m = re.search(r"(\d[\d,]+)", raw_cuda)
-        if m:
-            cuda_cores = int(m.group(1).replace(",", ""))
+        if m: cuda_cores = int(m.group(1).replace(",", ""))
 
-    # ── Boost clock from "Boost: 2700 MHz ..." ────────────────────
-    boost_clock_mhz: Optional[int] = None
+    boost_clock_mhz = None
     if raw_clocks and not _is_na(raw_clocks):
-        # Priority: explicit "Boost:" label
         boost_m = re.search(r"boost[:\s]+(\d+)\s*MHz", raw_clocks, re.IGNORECASE)
-        if boost_m:
-            boost_clock_mhz = int(boost_m.group(1))
+        if boost_m: boost_clock_mhz = int(boost_m.group(1))
         else:
-            # Fallback: last MHz value in the field
             all_mhz = re.findall(r"(\d+)\s*MHz", raw_clocks, re.IGNORECASE)
-            if all_mhz:
-                boost_clock_mhz = int(all_mhz[-1])
+            if all_mhz: boost_clock_mhz = int(all_mhz[-1])
 
-    # ── Memory bus width from "256-bit" ───────────────────────────
-    memory_bus_bit: Optional[int] = None
+    memory_bus_bit = None
     if raw_mem_bus and not _is_na(raw_mem_bus):
         m = re.search(r"(\d+)\s*-?\s*bit", raw_mem_bus, re.IGNORECASE)
-        if m:
-            memory_bus_bit = int(m.group(1))
+        if m: memory_bus_bit = int(m.group(1))
 
     return {
-        "component_type":       "GPU",
-        # ── Compatibility fields (used by the matrix) ──
-        "vram_gb":              vram_gb,
-        "vram_type":            vram_type,
-        "pcie_gen":             pcie_gen,
-        "tdp_watts":            tdp_watts,
-        "psu_recommended_w":    psu_recommended,
-        "needs_power_connector": needs_power_connector,
-        "connector_type":       connector_type,
-        "length_mm":            length_mm,
-        # ── Extra fields (useful for UI / filtering) ───
-        "width_mm":             width_mm,
-        "slot_height_mm":       slot_height_mm,
-        "cuda_cores":           cuda_cores,
-        "boost_clock_mhz":      boost_clock_mhz,
-        "memory_bus_bit":       memory_bus_bit,
+        "vram_gb": vram_gb,
+        "memory_type": vram_type,
+        "memory_bus_bit": memory_bus_bit,
+        "shader_count": cuda_cores,
+        "boost_clock_mhz": boost_clock_mhz,
+        "tdp_w": tdp_watts,
+        "recommended_psu_w": psu_recommended,
+        "pcie_interface": pcie_gen,
+        "slot_width": None,
+        "card_length_mm": length_mm,
+        "directx_version": None,
+        "output_ports_json": None,
+        "has_ray_tracing": None,
+        "gpu_family": None,
+        "gpu_vendor": None,
     }
-
-
-# ─────────────────────────────────────────────────────────────────────
-#  OTHER EXTRACTORS  (intact, pending per-collection tuning)
-# ─────────────────────────────────────────────────────────────────────
-
-def extract_processor(doc: dict) -> dict:
-    raw_socket = _spec(doc, "Socket", "socket", "CPU Socket")
-    raw_tdp    = _spec(doc, "TDP", "Thermal Design Power", "Max TDP",
-                       "TDP (PL1)", "Default TDP")
-    raw_ddr    = _spec(doc, "Memory Type", "Supported Memory Type",
-                       "Memory Standard")
-    raw_cores  = _spec(doc, "Cores", "cores")
-    raw_speed  = _spec(doc, "SPEED", "Speed", "Base Clock", "Frequency")
-
-    name   = doc.get("name", "")
-    socket = _socket(raw_socket) or _infer_socket_from_name(name)
-    tdp    = _tdp_watts(raw_tdp)
-    ddr    = _ddr_type(raw_ddr)
-
-    cores: Optional[int] = None
-    if raw_cores:
-        m = re.search(r"\d+", raw_cores)
-        if m:
-            cores = int(m.group())
-
-    base_ghz: Optional[float] = None
-    if raw_speed and not _is_na(raw_speed):
-        m = re.search(r"([\d.]+)\s*GHz", raw_speed, re.IGNORECASE)
-        if m:
-            base_ghz = float(m.group(1))
-
-    return {
-        "component_type": "CPU",
-        "socket":         socket,
-        "tdp_watts":      tdp,
-        "ddr_support":    [ddr] if ddr else [],
-        "cores":          cores,
-        "base_clock_ghz": base_ghz,
-    }
-
-
-def extract_motherboard(doc: dict) -> dict:
-    raw_socket  = _spec(doc, "Socket", "socket", "CPU Socket")
-    raw_ddr     = _spec(doc, "Supported Memory Type", "Memory Type",
-                        "RAM Type", "Memory Standard")
-    raw_speed   = _spec(doc, "Memory Speed", "Max Memory Speed",
-                        "Supported Memory Speed")
-    raw_max_ram = _spec(doc, "Max Memory Support", "Max Memory",
-                        "Maximum Memory", "Max RAM")
-    raw_form    = _spec(doc, "Form Factor", "Motherboard Form Factor",
-                        "Board Type")
-    raw_pcie    = _spec(doc, "Expansion Slots", "PCIe Slots", "Slots")
-    raw_cpu_gen = _spec(doc, "Cpu Type", "CPU Support", "Compatible CPUs",
-                        "Supported Processors")
-    raw_channel = _spec(doc, "Channel Supported", "Memory Channel")
-    raw_slots   = _spec(doc, "Memory Slots", "DIMM Slots", "RAM Slots",
-                        "Number of Memory Slots")
-
-    socket      = _socket(raw_socket)
-    ddr_type    = _ddr_type(raw_ddr)
-    max_speed   = _speed_mhz(raw_speed)
-    max_ram_gb  = _gb(raw_max_ram)
-    form_factor = _form_factor_list(raw_form)
-
-    x16_slots = 0
-    if raw_pcie:
-        for m in re.finditer(r"(\d+)\s*[xX×]\s*PCI.?E\s*[xX×]\s*16", raw_pcie, re.IGNORECASE):
-            x16_slots += int(m.group(1))
-        if not x16_slots and re.search(r"PCI.?E\s*[xX×]\s*16", raw_pcie, re.IGNORECASE):
-            x16_slots = 1
-
-    pcie_gen_primary: Optional[float] = None
-    if raw_pcie:
-        cpu_slot_m = re.search(
-            r"PCI.?E\s*([\d.]+)\s*(?:supports\s*up\s*to\s*)?[xX×]\s*16[^)]*(?:FROM\s*CPU|\(CPU\))?",
-            raw_pcie, re.IGNORECASE
-        )
-        if cpu_slot_m:
-            pcie_gen_primary = _pcie_version(cpu_slot_m.group(1))
-        if not pcie_gen_primary:
-            pcie_gen_primary = _pcie_version(raw_pcie)
-
-    supported_gens: list[str] = []
-    if raw_cpu_gen:
-        for part in re.split(r"[,/]", raw_cpu_gen):
-            part = part.strip()
-            if part:
-                supported_gens.append(part)
-
-    dual_channel: Optional[bool] = None
-    if raw_channel:
-        dual_channel = "DUAL" in raw_channel.upper()
-
-    ram_slots: Optional[int] = None
-    if raw_slots:
-        m = re.search(r"\d+", raw_slots)
-        if m:
-            ram_slots = int(m.group())
-
-    return {
-        "component_type":     "Motherboard",
-        "socket":             socket,
-        "form_factor":        form_factor,
-        "ddr_type":           ddr_type,
-        "max_ram_speed_mhz":  max_speed,
-        "max_ram_gb":         max_ram_gb,
-        "pcie_x16_slots":     x16_slots,
-        "pcie_gen_primary":   pcie_gen_primary,
-        "dual_channel":       dual_channel,
-        "ram_slots":          ram_slots,
-        "supported_cpu_gens": supported_gens,
-    }
-
-
-def extract_ram(doc: dict) -> dict:
-    raw_type    = _spec(doc, "Memory Type", "Type", "RAM Type",
-                        "Memory Technology")
-    raw_cap     = _spec(doc, "Capacity", "Total Capacity", "Memory Size",
-                        "Size", "Module Size")
-    raw_kit     = _spec(doc, "Kit Type", "Kit", "Number of Modules",
-                        "Configuration", "Module Configuration")
-    raw_speed   = _spec(doc, "Speed", "Memory Speed", "Frequency",
-                        "Clock Speed", "Memory Clock")
-    raw_latency = _spec(doc, "Tested Latency", "CAS Latency", "CL",
-                        "Latency", "CAS")
-    raw_dimm    = _spec(doc, "Dimm Type", "DIMM Type", "Module Type")
-    raw_voltage = _spec(doc, "Tested Voltage", "Voltage", "Operating Voltage")
-
-    ddr_type  = _ddr_type(raw_type)
-    speed_mhz = _speed_mhz(raw_speed)
-    cap_gb    = _gb(raw_cap)
-
-    modules: Optional[int] = None
-    if raw_kit:
-        m = re.search(r"[xX×]\s*(\d+)", raw_kit)
-        if m:
-            modules = int(m.group(1))
-    if not modules:
-        m2 = re.search(r"\((\d+)\s*[xX×]\s*\d+\s*GB\)", doc.get("name", ""), re.I)
-        if m2:
-            modules = int(m2.group(1))
-
-    cas: Optional[int] = None
-    if raw_latency and not _is_na(raw_latency):
-        m = re.search(r"\b(\d{1,2})\b", raw_latency)
-        if m:
-            cas = int(m.group(1))
-
-    voltage: Optional[float] = None
-    if raw_voltage and not _is_na(raw_voltage):
-        m = re.search(r"([\d.]+)\s*V", raw_voltage, re.IGNORECASE)
-        if m:
-            voltage = float(m.group(1))
-
-    return {
-        "component_type": "RAM",
-        "ddr_type":       ddr_type,
-        "speed_mhz":      speed_mhz,
-        "capacity_gb":    cap_gb,
-        "modules":        modules,
-        "cas_latency":    cas,
-        "dimm_type":      raw_dimm.upper() if raw_dimm else "",
-        "voltage":        voltage,
-    }
-
-
-def extract_psu(doc: dict) -> dict:
-    raw_watt  = _spec(doc, "Wattage", "Power Output", "Capacity",
-                      "Max Power", "Continuous Power", "Power")
-    raw_eff   = _spec(doc, "Efficiency", "80 Plus", "Efficiency Rating",
-                      "Certificate", "80+", "Rating", "Certification")
-    raw_mod   = _spec(doc, "Modular", "Cable Management", "Modularity",
-                      "Modular Cables")
-    raw_pcie6 = _spec(doc, "PCIe Connector (6+2)", "PCIe Connector",
-                      "6+2 Pin Connector", "GPU Connector")
-
-    name    = doc.get("name", "")
-    wattage = _psu_watts(raw_watt or name)
-    eff     = _efficiency_tier(raw_eff, name)
-    mod     = _modular(raw_mod, name)
-
-    pcie_connectors: Optional[int] = None
-    if raw_pcie6 and not _is_na(raw_pcie6):
-        m = re.search(r"\d+", raw_pcie6)
-        if m:
-            pcie_connectors = int(m.group())
-
-    return {
-        "component_type":  "PSU",
-        "wattage":         wattage,
-        "efficiency_tier": eff,
-        "modular":         mod,
-        "pcie_connectors": pcie_connectors,
-    }
-
-
-def extract_cooler(doc: dict) -> dict:
-    raw_type    = _spec(doc, "Cooling Type", "Type", "Cooler Type")
-    raw_sockets = _spec(doc, "Socket Support", "Compatible Sockets",
-                        "Supported Sockets", "CPU Socket",
-                        "Socket Compatibility", "Socket")
-    raw_tdp     = _spec(doc, "TDP", "Max TDP", "Heat Dissipation",
-                        "Cooling Capacity", "Max CPU TDP")
-    raw_height  = _spec(doc, "Height", "Cooler Height", "Overall Height",
-                        "Total Height")
-    raw_fan     = _spec(doc, "Fan Size", "Fan Diameter")
-    raw_pwm     = _spec(doc, "PWM Controller", "PWM")
-
-    cooler_type = "Air"
-    if raw_type:
-        s = raw_type.upper()
-        if any(k in s for k in ("LIQUID", "AIO", "WATER", "CLC")):
-            cooler_type = "AIO"
-    else:
-        n = doc.get("name", "").upper()
-        if re.search(r"AIO|LIQUID|WATER|KRAKEN|H\d{3}", n):
-            cooler_type = "AIO"
-
-    supported_sockets = _socket_list(raw_sockets)
-    max_tdp           = _tdp_watts(raw_tdp)
-    height_mm         = _mm(raw_height)
-
-    fan_mm: Optional[int] = None
-    if raw_fan:
-        m = re.search(r"(\d{2,3})\s*mm", raw_fan, re.IGNORECASE)
-        if m:
-            fan_mm = int(m.group(1))
-
-    pwm = None
-    if raw_pwm:
-        pwm = raw_pwm.upper().strip() == "YES"
-
-    return {
-        "component_type":    "Cooler",
-        "cooler_type":       cooler_type,
-        "supported_sockets": supported_sockets,
-        "max_tdp_watts":     max_tdp,
-        "height_mm":         height_mm,
-        "fan_mm":            fan_mm,
-        "pwm":               pwm,
-    }
-
-
-def extract_cabinet(doc: dict) -> dict:
-    raw_size   = _spec(doc, "Cabinet Size", "Case Size", "Tower Type", "Type")
-    raw_mobo   = _spec(doc, "Motherboard Size", "Motherboard Support",
-                       "Compatible Motherboards", "Supported Form Factors")
-    raw_cooler = _spec(doc, "Max CPU Cooler Height", "CPU Cooler Height",
-                       "Max Cooler Height", "Maximum CPU Cooler Height")
-    raw_gpu    = _spec(doc, "Max Gpu Length", "Max GPU Length",
-                       "Maximum GPU Length", "Max Graphics Card Length")
-    raw_exp    = _spec(doc, "Expansion Slots")
-    raw_hdd    = _spec(doc, 'Max 3.5" HDD', "Max HDD", "HDD Bays")
-    raw_ssd    = _spec(doc, 'Max 2.5" SSD', "Max SSD", "SSD Bays")
-
-    size_class = ""
-    if raw_size:
-        s = raw_size.upper()
-        if "MINI"   in s or "ITX"   in s: size_class = "Mini"
-        elif "FULL" in s:                  size_class = "Full-Tower"
-        elif "MID"  in s or "TOWER" in s:  size_class = "Mid-Tower"
-
-    supported_mobos = _form_factor_list(raw_mobo) if raw_mobo else []
-    max_cooler_mm   = _mm(raw_cooler)              if raw_cooler else None
-    max_gpu_mm      = _mm(raw_gpu)                 if raw_gpu    else None
-
-    exp_slots: Optional[int] = None
-    if raw_exp and not _is_na(raw_exp):
-        m = re.search(r"\d+", raw_exp)
-        if m:
-            exp_slots = int(m.group())
-
-    hdd_bays: Optional[int] = None
-    if raw_hdd and not _is_na(raw_hdd):
-        m = re.search(r"\d+", raw_hdd)
-        if m:
-            hdd_bays = int(m.group())
-
-    ssd_bays: Optional[int] = None
-    if raw_ssd and not _is_na(raw_ssd):
-        m = re.search(r"\d+", raw_ssd)
-        if m:
-            ssd_bays = int(m.group())
-
-    return {
-        "component_type":       "Cabinet",
-        "size_class":           size_class,
-        "supported_mobo_sizes": supported_mobos,
-        "max_cooler_height_mm": max_cooler_mm,
-        "max_gpu_length_mm":    max_gpu_mm,
-        "expansion_slots":      exp_slots,
-        "hdd_bays":             hdd_bays,
-        "ssd_bays":             ssd_bays,
-    }
-
-
-def extract_storage(doc: dict) -> dict:
-    raw_cat   = _spec(doc, "Category", "Type", "Drive Type")
-    raw_cap   = _spec(doc, "Capacity", "Storage Capacity", "Size")
-    raw_form  = _spec(doc, "Form Factor", "Drive Form Factor")
-    raw_nvme  = _spec(doc, "NVMe", "NVMe Support", "NVMe PCIe")
-    raw_iface = _spec(doc, "Interface", "Connection", "Bus")
-    raw_read  = _spec(doc, "Read Speed", "Sequential Read", "Max Read Speed")
-    raw_write = _spec(doc, "Write Speed", "Sequential Write", "Max Write Speed")
-
-    capacity_gb = _gb(raw_cap) if raw_cap else None
-    form_factor = _form_factor_list(raw_form) if raw_form else []
-
-    interface = ""
-    if raw_iface and not _is_na(raw_iface):
-        s = raw_iface.upper()
-        if "NVME" in s or "M.2" in s: interface = "NVMe"
-        elif "SATA" in s:             interface = "SATA"
-        elif "SAS"  in s:             interface = "SAS"
-        else:                         interface = raw_iface.strip()
-    if raw_nvme and not _is_na(raw_nvme):
-        interface = "NVMe"
-
-    drive_type = ""
-    if raw_cat and not _is_na(raw_cat):
-        s = raw_cat.upper()
-        if "SSD" in s:                   drive_type = "SSD"
-        elif "HDD" in s or "HARD" in s:  drive_type = "HDD"
-    if not drive_type:
-        n = doc.get("name", "").upper()
-        if "SSD" in n:                    drive_type = "SSD"
-        elif "HDD" in n or "HARD DISK" in n: drive_type = "HDD"
-
-    def _mbps(raw: str) -> Optional[int]:
-        if not raw or _is_na(raw):
-            return None
-        m = re.search(r"(\d+)\s*MB/s", raw, re.IGNORECASE)
-        return int(m.group(1)) if m else None
-
-    return {
-        "component_type": "Storage",
-        "drive_type":     drive_type,
-        "capacity_gb":    capacity_gb,
-        "form_factor":    form_factor,
-        "interface":      interface,
-        "read_mbps":      _mbps(raw_read),
-        "write_mbps":     _mbps(raw_write),
-    }
-
-
-# ─────────────────────────────────────────────────────────────────────
-#  DISPATCHER
-# ─────────────────────────────────────────────────────────────────────
-
-def _gb(raw: str) -> Optional[int]:
-    if not raw or _is_na(raw):
-        return None
-    tb = re.search(r"(\d+(?:\.\d+)?)\s*TB", raw, re.IGNORECASE)
-    if tb:
-        return int(round(float(tb.group(1)) * 1024))
-    gb = re.search(r"(\d+(?:\.\d+)?)\s*GB", raw, re.IGNORECASE)
-    return int(round(float(gb.group(1)))) if gb else None
 
 
 def _compat_socket_list(raw: str) -> list[str]:
@@ -1053,251 +619,6 @@ def _compat_ddr_support(*values: str) -> list[str]:
         return ["DDR4"]
 
     return []
-
-
-def extract_processor(doc: dict) -> dict:
-    raw_socket = _spec(doc, "Socket", "socket", "CPU Socket", "Processor Socket Type")
-    raw_tdp = _spec(doc, "Default TDP", "TDP", "Thermal Design Power", "Max TDP", "Power")
-    raw_ddr = _spec(doc, "Memory Support", "Memory Types", "Memory Type", "Supported Memory Type")
-
-    name = doc.get("name") or ""
-    socket = _compat_first_socket(raw_socket, name)
-    if not socket and re.search(r"CORE\s+ULTRA\s+[3579]\s+2\d{2}[A-Z]?\b", name.upper()):
-        socket = "LGA1851"
-    if not socket:
-        socket = _infer_socket_from_name(name)
-
-    ddr_support = _compat_ddr_support(raw_ddr, raw_socket, name)
-    if not ddr_support:
-        if socket == "AM5":
-            ddr_support = ["DDR5"]
-        elif socket == "AM4":
-            ddr_support = ["DDR4"]
-
-    return {
-        "component_type": "CPU",
-        "socket": socket,
-        "ddr_support": ddr_support,
-        "tdp_watts": _tdp_watts(raw_tdp),
-    }
-
-
-def extract_motherboard(doc: dict) -> dict:
-    raw_socket = _spec(doc, "Socket", "socket", "CPU Socket", "Motherboard Socket")
-    raw_cpu = _spec(doc, "CPU", "Cpu Type", "CPU Support", "Compatible CPUs", "Supported Processors")
-    raw_memory = _spec(doc, "Memory", "RAM", "Supported Memory Type", "RAM Type", "Memory Type")
-    raw_max_ram = _spec(doc, "Motherboard Max RAM Support", "Max Memory Support", "Max Memory", "Maximum Memory", "Max RAM")
-    raw_speed = _spec(doc, "Memory Speed", "Max Memory Speed", "Supported Memory Speed")
-    raw_form = _spec(doc, "Form Factor", "Motherboard Form Factor", "Board Type")
-    raw_pcie = _spec(doc, "Expansion Slots", "PCIe Slots", "Slots")
-    raw_slots = _spec(doc, "Memory Slots", "DIMM Slots", "RAM Slots")
-    raw_storage = _spec(doc, "Storage", "Storage Interface")
-
-    name = doc.get("name") or ""
-    socket = _compat_first_socket(raw_socket, raw_cpu, name)
-    ddr_type = _ddr_type(raw_memory or name)
-    max_ram_gb = _gb(raw_max_ram or raw_memory)
-    max_ram_speed_mhz = _speed_mhz(raw_speed or raw_memory)
-    form_factor = _form_factor_list(raw_form or name)
-    ram_slots = _compat_memory_slots(raw_slots or raw_memory)
-    supported_cpu_gens = _compat_cpu_generations(raw_cpu)
-    m2_slots, sata_ports = _compat_storage_connectivity(raw_storage)
-
-    pcie_x16_slots = 1
-    if raw_pcie and not _is_na(raw_pcie):
-        slot_text = raw_pcie.upper().replace("×", "X")
-        count = 0
-        for match in re.finditer(r"(\d+)\s*[xX]\s*(?:PCI(?:E| EXPRESS)[^,\n;:]*)?[xX]\s*16", slot_text, re.IGNORECASE):
-            count += int(match.group(1))
-        if not count:
-            count = len(re.findall(r"PCI(?:E| EXPRESS)[^,\n;:]*[xX]\s*16|[xX]\s*16\s*SLOT", slot_text, re.IGNORECASE))
-        if count:
-            pcie_x16_slots = count
-
-    return {
-        "component_type": "Motherboard",
-        "socket": socket,
-        "form_factor": form_factor,
-        "ddr_type": ddr_type,
-        "max_ram_speed_mhz": max_ram_speed_mhz,
-        "max_ram_gb": max_ram_gb,
-        "ram_slots": ram_slots,
-        "pcie_x16_slots": pcie_x16_slots,
-        "m2_slots": m2_slots,
-        "sata_ports": sata_ports,
-        "supported_cpu_gens": supported_cpu_gens,
-    }
-
-
-def extract_ram(doc: dict) -> dict:
-    raw_type = _spec(doc, "Memory Type", "RAM Type", "Type", "Memory Technology")
-    raw_cap = _spec(doc, "Capacity", "RAM Capacity", "Total Capacity", "Memory Size", "Size", "Module Size")
-    raw_kit = _spec(doc, "RAM Channel Kit", "Kit Type", "Kit", "Number of Modules", "Configuration", "Module Configuration")
-    raw_speed = _spec(doc, "RAM Speed", "Tested Speed", "Speed", "Memory Speed", "Frequency", "Clock Speed")
-    raw_dimm = _spec(doc, "Package Memory Format", "Module Type", "Dimm Type", "DIMM Type", "Form Factor", "Memory Suitable For")
-
-    name = doc.get("name") or ""
-    modules: Optional[int] = None
-    for source in (raw_kit, raw_cap, name):
-        if not source:
-            continue
-        match = re.search(r"(\d+)\s*[xX]\s*\d+\s*GB", source, re.IGNORECASE)
-        if match:
-            modules = int(match.group(1))
-            break
-        match = re.search(r"\((\d+)\s*GB\s*[xX]\s*(\d+)\)", source, re.IGNORECASE)
-        if match:
-            modules = int(match.group(2))
-            break
-
-    return {
-        "component_type": "RAM",
-        "ddr_type": _ddr_type(raw_type or name),
-        "speed_mhz": _speed_mhz(raw_speed or name),
-        "capacity_gb": _gb(raw_cap or name),
-        "modules": modules,
-        "dimm_type": _compat_dimm_type(raw_dimm, name),
-    }
-
-
-def extract_psu(doc: dict) -> dict:
-    raw_watt = _spec(doc, "Wattage", "Power Output", "Capacity", "Max Power", "Continuous Power", "Power", "SMPS Watt", "Continuous power W", "Output Capacity")
-    raw_form = _spec(doc, "PSU Form Factor", "Form Factor", "Type")
-    raw_dims = _spec(doc, "Dimensions", "Dimension")
-    raw_pcie8 = _spec(doc, "PCIe Connector (6+2)", "PCIe Connector", "PCIe connectors", "PCI-E Connector")
-    raw_12vhpwr = _spec(doc, "PCIe 12+4-Pin 12VHPWR Connectors", "12VHPWR Connectors", "12V-2x6 Connectors")
-    raw_connectors = _spec(doc, "Cable Connectors", "Connector", "Connectors")
-
-    name = doc.get("name") or ""
-    connector_text = " ".join(part for part in (raw_connectors, raw_pcie8, raw_12vhpwr) if part and not _is_na(part))
-
-    pcie_8pin_connectors: Optional[int] = None
-    if raw_pcie8 and re.fullmatch(r"\s*(\d+)\s*", raw_pcie8):
-        pcie_8pin_connectors = int(raw_pcie8.strip())
-    else:
-        pcie_8pin_connectors = _compat_psu_connector_count(raw_pcie8, "8pin")
-    if pcie_8pin_connectors is None:
-        pcie_8pin_connectors = _compat_psu_connector_count(connector_text, "8pin")
-
-    pcie_16pin_connectors: Optional[int] = None
-    if raw_12vhpwr and re.fullmatch(r"\s*(\d+)\s*", raw_12vhpwr):
-        pcie_16pin_connectors = int(raw_12vhpwr.strip())
-    else:
-        pcie_16pin_connectors = _compat_psu_connector_count(raw_12vhpwr, "16pin")
-    if pcie_16pin_connectors is None:
-        pcie_16pin_connectors = _compat_psu_connector_count(connector_text, "16pin")
-
-    return {
-        "component_type": "PSU",
-        "wattage": _psu_watts(raw_watt or name),
-        "form_factor": _compat_psu_form_factor(raw_form, name),
-        "length_mm": _compat_first_dimension_mm(raw_dims),
-        "pcie_8pin_connectors": pcie_8pin_connectors,
-        "pcie_16pin_connectors": pcie_16pin_connectors,
-    }
-
-
-def extract_cooler(doc: dict) -> dict:
-    raw_type = _spec(doc, "Cooling Type", "Type", "Cooler Type")
-    raw_sockets = " ".join(
-        part for part in (
-            _spec(doc, "Socket Support", "Compatible Sockets", "Supported Sockets", "CPU Socket", "Socket Compatibility", "Socket", "Compatibility"),
-            _spec(doc, "CPU compatibility (Intel)"),
-            _spec(doc, "CPU compatibility (AMD)"),
-        )
-        if part
-    )
-    raw_tdp = _spec(doc, "TDP", "Max TDP", "Heat Dissipation", "Cooling Capacity", "Max CPU TDP")
-    raw_height = _spec(doc, "Height", "Cooler Height", "Overall Height", "Total Height", "Heatsink Dimensions", "Product Dimensions")
-    raw_radiator = _spec(doc, "Radiator Size", "Radiator Dimensions", "Radiator")
-
-    name = doc.get("name") or ""
-    cooler_text = f"{raw_type} {name}".upper()
-    cooler_type = "Air"
-    if any(token in cooler_text for token in ("LIQUID", "AIO", "WATER", "KRAKEN")):
-        cooler_type = "AIO"
-
-    radiator_sizes = _compat_radiator_sizes(raw_radiator, name)
-
-    return {
-        "component_type": "Cooler",
-        "cooler_type": cooler_type,
-        "supported_sockets": _compat_socket_list(raw_sockets),
-        "max_tdp_watts": _tdp_watts(raw_tdp),
-        "height_mm": _compat_last_dimension_mm(raw_height) if cooler_type == "Air" else None,
-        "radiator_size_mm": radiator_sizes[0] if radiator_sizes else None,
-    }
-
-
-def extract_cabinet(doc: dict) -> dict:
-    raw_mobo = _spec(doc, "Motherboard Support", "Motherboard Size", "Compatible Motherboards", "Supported Form Factors")
-    raw_cooler = _spec(doc, "Maximum CPU Cooler Height", "Max CPU Cooler Height", "CPU Cooler Height", "Max Cooler Height")
-    raw_gpu = _spec(doc, "Maximum GPU Length", "Max GPU Length", "Maximum Graphics Card Length", "Max Graphics Card Length")
-    raw_radiator = _spec(doc, "Radiator Support")
-    raw_psu = _spec(doc, "Maximum PSU Length", "Max PSU Length")
-    raw_bays = _spec(doc, "Drive Bays", "Storage")
-
-    hdd_bays, ssd_bays = _compat_drive_bays(raw_bays)
-
-    return {
-        "component_type": "Cabinet",
-        "supported_mobo_sizes": _form_factor_list(raw_mobo or (doc.get("name") or "")),
-        "max_cooler_height_mm": _mm(raw_cooler),
-        "max_gpu_length_mm": _mm(raw_gpu),
-        "radiator_support_mm": _compat_radiator_sizes(raw_radiator),
-        "max_psu_length_mm": _mm(raw_psu),
-        "hdd_bays": hdd_bays,
-        "ssd_bays": ssd_bays,
-    }
-
-
-def extract_storage(doc: dict) -> dict:
-    raw_cat = _spec(doc, "Category", "Type", "Drive Type", "Storage Type")
-    raw_form = _spec(doc, "Form Factor", "Drive Form Factor")
-    raw_nvme = _spec(doc, "NVMe", "NVMe Support", "NVMe PCIe")
-    raw_iface = _spec(doc, "Interface", "Connection", "Bus")
-
-    name = doc.get("name") or ""
-    combined_type = f"{raw_cat} {name}".upper()
-    drive_type = ""
-    if "SSD" in combined_type or "NVME" in combined_type:
-        drive_type = "SSD"
-    elif "HDD" in combined_type or "HARD DISK" in combined_type:
-        drive_type = "HDD"
-
-    combined_interface = f"{raw_iface} {raw_nvme} {name}".upper()
-    interface = ""
-    if "NVME" in combined_interface or "PCIE" in combined_interface or re.search(r"\bGEN[345]\b", combined_interface):
-        interface = "NVMe"
-    elif "SATA" in combined_interface:
-        interface = "SATA"
-    elif "SAS" in combined_interface:
-        interface = "SAS"
-
-    form_factor = _form_factor_list(raw_form or name)
-    if not form_factor and "M.2" in name.upper():
-        form_factor = ["M.2"]
-
-    return {
-        "component_type": "Storage",
-        "drive_type": drive_type,
-        "form_factor": form_factor,
-        "interface": interface,
-    }
-
-
-def extract_processor(doc: dict) -> dict:
-    raw_socket = _spec(doc, "Socket", "socket", "CPU Socket", "Processor Socket Type")
-    raw_tdp = _spec(doc, "Default TDP", "TDP", "Thermal Design Power", "Max TDP", "Power")
-    raw_ddr = _spec(doc, "Memory Support", "Memory Types", "Memory Type", "Supported Memory Type")
-
-    name = doc.get("name", "")
-    socket = _compat_first_socket(raw_socket, name)
-    if not socket and re.search(r"CORE\s+ULTRA\s+[3579]\s+2\d{2}[A-Z]?\b", name.upper()):
-        socket = "LGA1851"
-    if not socket:
-            return norm
-    return ""
 
 
 def _compat_dimensions_mm(raw: str) -> list[int]:
@@ -1483,33 +804,39 @@ def _compat_drive_bays(raw: str) -> tuple[Optional[int], Optional[int]]:
 
     return hdd_bays, ssd_bays
 
-
 def extract_processor(doc: dict) -> dict:
     raw_socket = _spec(doc, "Socket", "socket", "CPU Socket", "Processor Socket Type")
     raw_tdp = _spec(doc, "Default TDP", "TDP", "Thermal Design Power", "Max TDP", "Power")
     raw_ddr = _spec(doc, "Memory Support", "Memory Types", "Memory Type", "Supported Memory Type")
-
+    
     name = doc.get("name", "")
-    socket = _compat_first_socket(raw_socket, name)
-    if not socket and re.search(r"CORE\s+ULTRA\s+[3579]\s+2\d{2}[A-Z]?\b", name.upper()):
-        socket = "LGA1851"
-    if not socket:
-        socket = _infer_socket_from_name(name)
-
-    ddr_support = _compat_ddr_support(raw_ddr, raw_socket, name)
-    if not ddr_support:
-        if socket == "AM5":
-            ddr_support = ["DDR5"]
-        elif socket == "AM4":
-            ddr_support = ["DDR4"]
-
+    socket = _socket(raw_socket) or _infer_socket_from_name(name)
+    tdp = _tdp_watts(raw_tdp)
+    ddr_type = _ddr_type(raw_ddr)
+    
     return {
-        "component_type": "CPU",
         "socket": socket,
-        "ddr_support": ddr_support,
-        "tdp_watts": _tdp_watts(raw_tdp),
+        "cores_total": None,
+        "cores_performance": None,
+        "cores_efficiency": None,
+        "threads": None,
+        "base_clock_mhz": None,
+        "boost_clock_mhz": None,
+        "tdp_w": tdp,
+        "max_tdp_w": None,
+        "l3_cache_mb": None,
+        "memory_type": ddr_type,
+        "max_memory_speed_mhz": None,
+        "max_memory_channels": None,
+        "has_igpu": None,
+        "igpu_model": None,
+        "unlocked": None,
+        "pcie_version": None,
+        "manufacturing_nm": None,
+        "platform": None,
+        "series": None,
+        "architecture": None,
     }
-
 
 def extract_motherboard(doc: dict) -> dict:
     raw_socket = _spec(doc, "Socket", "socket", "CPU Socket", "Motherboard Socket")
@@ -1523,53 +850,61 @@ def extract_motherboard(doc: dict) -> dict:
     raw_storage = _spec(doc, "Storage", "Storage Interface")
 
     name = doc.get("name", "")
-    socket = _compat_first_socket(raw_socket, raw_cpu, name)
+    socket = _socket(raw_socket)
     ddr_type = _ddr_type(raw_memory or name)
     max_ram_gb = _gb(raw_max_ram or raw_memory)
     max_ram_speed_mhz = _speed_mhz(raw_speed or raw_memory)
-    form_factor = _form_factor_list(raw_form or name)
-    ram_slots = _compat_memory_slots(raw_slots or raw_memory)
-    supported_cpu_gens = _compat_cpu_generations(raw_cpu)
-    m2_slots, sata_ports = _compat_storage_connectivity(raw_storage)
+    form_factors = _form_factor_list(raw_form or name)
+    
+    ram_slots = None
+    if raw_slots and not _is_na(raw_slots):
+        m = re.search(r"\d+", raw_slots)
+        if m: ram_slots = int(m.group())
 
     pcie_x16_slots = 1
     if raw_pcie and not _is_na(raw_pcie):
         slot_text = raw_pcie.upper().replace("×", "X")
-        count = 0
-        for match in re.finditer(r"(\d+)\s*[xX]\s*(?:PCI(?:E| EXPRESS)[^,\n;:]*)?[xX]\s*16", slot_text, re.IGNORECASE):
-            count += int(match.group(1))
-        if not count:
-            count = len(re.findall(r"PCI(?:E| EXPRESS)[^,\n;:]*[xX]\s*16|[xX]\s*16\s*SLOT", slot_text, re.IGNORECASE))
-        if count:
-            pcie_x16_slots = count
+        count = sum(int(match.group(1)) for match in re.finditer(r"(\d+)\s*[xX]\s*(?:PCI(?:E| EXPRESS)[^,\n;:]*)?[xX]\s*16", slot_text, re.IGNORECASE))
+        if count: pcie_x16_slots = count
+        
+    m2_slots = None
+    sata_ports = None
 
     return {
-        "component_type": "Motherboard",
         "socket": socket,
-        "form_factor": form_factor,
-        "ddr_type": ddr_type,
-        "max_ram_speed_mhz": max_ram_speed_mhz,
-        "max_ram_gb": max_ram_gb,
-        "ram_slots": ram_slots,
-        "pcie_x16_slots": pcie_x16_slots,
+        "chipset": None,
+        "platform": None,
+        "form_factor": form_factors[0] if form_factors else None,
+        "memory_type": ddr_type,
+        "memory_slots": ram_slots,
+        "max_memory_gb": max_ram_gb,
+        "max_memory_speed_mhz": max_ram_speed_mhz,
+        "pcie_version": None,
         "m2_slots": m2_slots,
         "sata_ports": sata_ports,
-        "supported_cpu_gens": supported_cpu_gens,
+        "has_wifi": None,
+        "wifi_standard": None,
+        "has_bluetooth": None,
+        "usb_rear_json": None,
+        "audio_codec": None,
+        "lan_speed_gbps": None,
+        "supports_ecc": None,
     }
 
-
 def extract_ram(doc: dict) -> dict:
-    raw_type = _spec(doc, "Memory Type", "RAM Type", "Type", "Memory Technology")
     raw_cap = _spec(doc, "Capacity", "RAM Capacity", "Total Capacity", "Memory Size", "Size", "Module Size")
-    raw_kit = _spec(doc, "RAM Channel Kit", "Kit Type", "Kit", "Number of Modules", "Configuration", "Module Configuration")
+    raw_type = _spec(doc, "Memory Type", "RAM Type", "Type", "Memory Technology")
     raw_speed = _spec(doc, "RAM Speed", "Tested Speed", "Speed", "Memory Speed", "Frequency", "Clock Speed")
+    raw_kit = _spec(doc, "RAM Channel Kit", "Kit Type", "Kit", "Number of Modules", "Configuration", "Module Configuration")
+    raw_latency = _spec(doc, "Tested Latency", "CAS Latency", "CL", "Latency", "CAS")
+    raw_voltage = _spec(doc, "Tested Voltage", "Voltage", "Operating Voltage")
     raw_dimm = _spec(doc, "Package Memory Format", "Module Type", "Dimm Type", "DIMM Type", "Form Factor", "Memory Suitable For")
 
-    name = doc.get("name", "")
-    modules: Optional[int] = None
+    name = doc.get("name") or ""
+    
+    modules = None
     for source in (raw_kit, raw_cap, name):
-        if not source:
-            continue
+        if not source: continue
         match = re.search(r"(\d+)\s*[xX]\s*\d+\s*GB", source, re.IGNORECASE)
         if match:
             modules = int(match.group(1))
@@ -1579,375 +914,135 @@ def extract_ram(doc: dict) -> dict:
             modules = int(match.group(2))
             break
 
-    return {
-        "component_type": "RAM",
-        "ddr_type": _ddr_type(raw_type or name),
-        "speed_mhz": _speed_mhz(raw_speed or name),
-        "capacity_gb": _gb(raw_cap or name),
-        "modules": modules,
-        "dimm_type": _compat_dimm_type(raw_dimm, name),
-    }
+    cas = None
+    if raw_latency and not _is_na(raw_latency):
+        m = re.search(r"\b(\d{1,2})\b", raw_latency)
+        if m: cas = int(m.group(1))
+        
+    voltage = None
+    if raw_voltage and not _is_na(raw_voltage):
+        m = re.search(r"([\d.]+)\s*V", raw_voltage, re.IGNORECASE)
+        if m: voltage = float(m.group(1))
 
+    return {
+        "capacity_gb": _gb(raw_cap or name),
+        "speed_mhz": _speed_mhz(raw_speed or name),
+        "type": _ddr_type(raw_type or name),
+        "kit_count": modules,
+        "cas_latency": cas,
+        "voltage_v": voltage,
+        "has_xmp": None,
+        "has_expo": None,
+        "form_factor": raw_dimm.upper() if raw_dimm else None,
+        "has_rgb": None,
+    }
 
 def extract_psu(doc: dict) -> dict:
     raw_watt = _spec(doc, "Wattage", "Power Output", "Capacity", "Max Power", "Continuous Power", "Power", "SMPS Watt", "Continuous power W", "Output Capacity")
+    name = doc.get("name") or ""
+    raw_eff = _spec(doc, "Efficiency", "80 Plus", "Efficiency Rating", "Certificate", "80+", "Rating", "Certification")
+    raw_mod = _spec(doc, "Modular", "Cable Management", "Modularity", "Modular Cables")
     raw_form = _spec(doc, "PSU Form Factor", "Form Factor", "Type")
-    raw_dims = _spec(doc, "Dimensions", "Dimension")
-    raw_pcie8 = _spec(doc, "PCIe Connector", "PCIe connectors", "PCI-E Connector")
-    raw_12vhpwr = _spec(doc, "PCIe 12+4-Pin 12VHPWR Connectors", "12VHPWR Connectors", "12V-2x6 Connectors")
-    raw_connectors = _spec(doc, "Connectors")
-
-    name = doc.get("name", "")
-    pcie_8pin_connectors: Optional[int] = None
-    pcie_16pin_connectors: Optional[int] = None
-
-    for raw in (raw_pcie8, raw_connectors):
-        if raw and not _is_na(raw):
-            match = re.search(r"\b(\d+)\b", raw)
-            if raw is raw_pcie8 and match:
-                pcie_8pin_connectors = int(match.group(1))
-                break
-            connector_match = re.search(r"(?:PCI(?:-?E)?|6\+2|8-?PIN)[^,\n;:]*[xX]\s*(\d+)", raw, re.IGNORECASE)
-            if connector_match:
-                pcie_8pin_connectors = int(connector_match.group(1))
-                break
-
-    for raw in (raw_12vhpwr, raw_connectors):
-        if raw and not _is_na(raw):
-            match = re.search(r"\b(\d+)\b", raw)
-            if raw is raw_12vhpwr and match:
-                pcie_16pin_connectors = int(match.group(1))
-                break
-            connector_match = re.search(r"(?:12VHPWR|12V\s*[- ]?\s*2X6|16-?PIN)[^,\n;:]*[xX]\s*(\d+)", raw, re.IGNORECASE)
-            if connector_match:
-                pcie_16pin_connectors = int(connector_match.group(1))
-                break
-            if re.search(r"12VHPWR|12V\s*[- ]?\s*2X6|16-?PIN", raw, re.IGNORECASE):
-                pcie_16pin_connectors = 1
-                break
 
     return {
-        "component_type": "PSU",
-        "wattage": _psu_watts(raw_watt or name),
-        "form_factor": _compat_psu_form_factor(raw_form, name),
-        "length_mm": _compat_last_dimension_mm(raw_dims),
-        "pcie_8pin_connectors": pcie_8pin_connectors,
-        "pcie_16pin_connectors": pcie_16pin_connectors,
+        "wattage_w": _psu_watts(raw_watt or name),
+        "efficiency_rating": _efficiency_tier(raw_eff, name),
+        "modularity": _modular(raw_mod, name),
+        "form_factor": raw_form,
+        "pcie_connectors": None,
+        "atx12v_connectors": None,
+        "sata_connectors": None,
+        "fan_size_mm": None,
+        "mtbf_hours": None,
     }
 
+def extract_storage(doc: dict) -> dict:
+    raw_cat = _spec(doc, "Category", "Type", "Drive Type", "Storage Type")
+    raw_form = _spec(doc, "Form Factor", "Drive Form Factor")
+    raw_cap = _spec(doc, "Capacity", "Storage Capacity", "Size")
+    raw_iface = _spec(doc, "Interface", "Connection", "Bus")
+    raw_nvme = _spec(doc, "NVMe", "NVMe Support", "NVMe PCIe")
+
+    name = doc.get("name") or ""
+    combined_type = f"{raw_cat} {name}".upper()
+    drive_type = ""
+    if "SSD" in combined_type or "NVME" in combined_type: drive_type = "SSD"
+    elif "HDD" in combined_type or "HARD DISK" in combined_type: drive_type = "HDD"
+
+    combined_interface = f"{raw_iface} {raw_nvme} {name}".upper()
+    interface = ""
+    if "NVME" in combined_interface or "PCIE" in combined_interface or re.search(r"\bGEN[345]\b", combined_interface):
+        interface = "NVMe"
+    elif "SATA" in combined_interface: interface = "SATA"
+
+    form_factor = _form_factor_list(raw_form or name)
+
+    return {
+        "type": drive_type,
+        "form_factor": form_factor[0] if form_factor else None,
+        "interface": interface,
+        "capacity_gb": _gb(raw_cap),
+        "seq_read_mbps": None,
+        "seq_write_mbps": None,
+        "rand_read_iops": None,
+        "rand_write_iops": None,
+        "tbw": None,
+        "nand_type": None,
+        "has_dram_cache": None,
+    }
+
+def extract_cabinet(doc: dict) -> dict:
+    raw_mobo = _spec(doc, "Motherboard Support", "Motherboard Size", "Compatible Motherboards", "Supported Form Factors")
+    raw_gpu = _spec(doc, "Maximum GPU Length", "Max GPU Length", "Maximum Graphics Card Length", "Max Graphics Card Length")
+    raw_cooler = _spec(doc, "Maximum CPU Cooler Height", "Max CPU Cooler Height", "CPU Cooler Height", "Max Cooler Height")
+    raw_psu = _spec(doc, "Maximum PSU Length", "Max PSU Length")
+    raw_exp = _spec(doc, "Expansion Slots")
+    
+    exp_slots = None
+    if raw_exp and not _is_na(raw_exp):
+        m = re.search(r"\d+", raw_exp)
+        if m: exp_slots = int(m.group())
+
+    return {
+        "form_factor_support": _form_factor_list(raw_mobo or doc.get("name", "")),
+        "max_gpu_length_mm": _mm(raw_gpu),
+        "max_cpu_cooler_height_mm": _mm(raw_cooler),
+        "max_psu_length_mm": _mm(raw_psu),
+        "expansion_slots": exp_slots,
+        "drive_bays_25": None,
+        "drive_bays_35": None,
+        "front_usb_ports_json": None,
+        "has_type_c_front": None,
+        "radiator_support_front_mm": None,
+        "radiator_support_top_mm": None,
+        "has_tempered_glass": None,
+        "has_rgb": None,
+        "material": None,
+        "color": None,
+    }
 
 def extract_cooler(doc: dict) -> dict:
     raw_type = _spec(doc, "Cooling Type", "Type", "Cooler Type")
+    raw_tdp = _spec(doc, "TDP", "Max TDP", "Heat Dissipation", "Cooling Capacity", "Max CPU TDP")
     raw_sockets = _spec(doc, "Socket Support", "Compatible Sockets", "Supported Sockets", "CPU Socket", "Socket Compatibility", "Socket", "Compatibility")
-    raw_tdp = _spec(doc, "TDP", "Max TDP", "Heat Dissipation", "Cooling Capacity", "Max CPU TDP")
-    raw_height = _spec(doc, "Height", "Cooler Height", "Overall Height", "Total Height", "Heatsink Dimensions", "Product Dimensions")
-    raw_radiator = _spec(doc, "Radiator Size", "Radiator Dimensions", "Radiator")
-
+    
     name = doc.get("name", "")
     cooler_text = f"{raw_type} {name}".upper()
     cooler_type = "Air"
     if any(token in cooler_text for token in ("LIQUID", "AIO", "WATER", "KRAKEN")):
         cooler_type = "AIO"
-
-    radiator_sizes = _compat_radiator_sizes(raw_radiator, name)
-
+        
     return {
-        "component_type": "Cooler",
-        "cooler_type": cooler_type,
-        "supported_sockets": _compat_socket_list(raw_sockets),
-        "max_tdp_watts": _tdp_watts(raw_tdp),
-        "height_mm": _compat_last_dimension_mm(raw_height) if cooler_type == "Air" else None,
-        "radiator_size_mm": radiator_sizes[0] if radiator_sizes else None,
+        "type": cooler_type,
+        "radiator_size_mm": None,
+        "fan_speed_max_rpm": None,
+        "noise_level_max_dba": None,
+        "tdp_rating_w": _tdp_watts(raw_tdp),
+        "socket_support": _socket_list(raw_sockets),
+        "has_argb": None,
+        "fan_dimensions_mm": None,
+        "height_mm": None,
     }
-
-
-def extract_cabinet(doc: dict) -> dict:
-    raw_mobo = _spec(doc, "Motherboard Support", "Motherboard Size", "Compatible Motherboards", "Supported Form Factors")
-    raw_cooler = _spec(doc, "Maximum CPU Cooler Height", "Max CPU Cooler Height", "CPU Cooler Height", "Max Cooler Height")
-    raw_gpu = _spec(doc, "Maximum GPU Length", "Max GPU Length", "Maximum Graphics Card Length", "Max Graphics Card Length")
-    raw_radiator = _spec(doc, "Radiator Support")
-    raw_psu = _spec(doc, "Maximum PSU Length", "Max PSU Length")
-    raw_bays = _spec(doc, "Drive Bays", "Storage")
-
-    hdd_bays, ssd_bays = _compat_drive_bays(raw_bays)
-
-    return {
-        "component_type": "Cabinet",
-        "supported_mobo_sizes": _form_factor_list(raw_mobo or doc.get("name", "")),
-        "max_cooler_height_mm": _mm(raw_cooler),
-        "max_gpu_length_mm": _mm(raw_gpu),
-        "radiator_support_mm": _compat_radiator_sizes(raw_radiator),
-        "max_psu_length_mm": _mm(raw_psu),
-        "hdd_bays": hdd_bays,
-        "ssd_bays": ssd_bays,
-    }
-
-
-def extract_storage(doc: dict) -> dict:
-    raw_cat = _spec(doc, "Category", "Type", "Drive Type", "Storage Type")
-    raw_form = _spec(doc, "Form Factor", "Drive Form Factor")
-    raw_nvme = _spec(doc, "NVMe", "NVMe Support", "NVMe PCIe")
-    raw_iface = _spec(doc, "Interface", "Connection", "Bus")
-
-    name = doc.get("name", "")
-    combined_type = f"{raw_cat} {name}".upper()
-    drive_type = ""
-    if "SSD" in combined_type or "NVME" in combined_type:
-        drive_type = "SSD"
-    elif "HDD" in combined_type or "HARD DISK" in combined_type:
-        drive_type = "HDD"
-
-    combined_interface = f"{raw_iface} {raw_nvme} {name}".upper()
-    interface = ""
-    if "NVME" in combined_interface or "PCIE" in combined_interface or re.search(r"\bGEN[345]\b", combined_interface):
-        interface = "NVMe"
-    elif "SATA" in combined_interface:
-        interface = "SATA"
-    elif "SAS" in combined_interface:
-        interface = "SAS"
-
-    form_factor = _form_factor_list(raw_form or name)
-    if not form_factor and "M.2" in name.upper():
-        form_factor = ["M.2"]
-
-    return {
-        "component_type": "Storage",
-        "drive_type": drive_type,
-        "form_factor": form_factor,
-        "interface": interface,
-    }
-
-
-def extract_processor(doc: dict) -> dict:
-    raw_socket = _spec(doc, "Socket", "socket", "CPU Socket", "Processor Socket Type")
-    raw_tdp = _spec(doc, "Default TDP", "TDP", "Thermal Design Power", "Max TDP", "Power")
-    raw_ddr = _spec(doc, "Memory Support", "Memory Types", "Memory Type", "Supported Memory Type")
-
-    name = doc.get("name") or ""
-    socket = _compat_first_socket(raw_socket, name)
-    if not socket and re.search(r"CORE\s+ULTRA\s+[3579]\s+2\d{2}[A-Z]?\b", name.upper()):
-        socket = "LGA1851"
-    if not socket:
-        socket = _infer_socket_from_name(name)
-
-    ddr_support = _compat_ddr_support(raw_ddr, raw_socket, name)
-    if not ddr_support:
-        if socket == "AM5":
-            ddr_support = ["DDR5"]
-        elif socket == "AM4":
-            ddr_support = ["DDR4"]
-
-    return {
-        "component_type": "CPU",
-        "socket": socket,
-        "ddr_support": ddr_support,
-        "tdp_watts": _tdp_watts(raw_tdp),
-    }
-
-
-def extract_motherboard(doc: dict) -> dict:
-    raw_socket = _spec(doc, "Socket", "socket", "CPU Socket", "Motherboard Socket")
-    raw_cpu = _spec(doc, "CPU", "Cpu Type", "CPU Support", "Compatible CPUs", "Supported Processors")
-    raw_memory = _spec(doc, "Memory", "RAM", "Supported Memory Type", "RAM Type", "Memory Type")
-    raw_max_ram = _spec(doc, "Motherboard Max RAM Support", "Max Memory Support", "Max Memory", "Maximum Memory", "Max RAM")
-    raw_speed = _spec(doc, "Memory Speed", "Max Memory Speed", "Supported Memory Speed")
-    raw_form = _spec(doc, "Form Factor", "Motherboard Form Factor", "Board Type")
-    raw_pcie = _spec(doc, "Expansion Slots", "PCIe Slots", "Slots")
-    raw_slots = _spec(doc, "Memory Slots", "DIMM Slots", "RAM Slots")
-    raw_storage = _spec(doc, "Storage", "Storage Interface")
-
-    name = doc.get("name") or ""
-    socket = _compat_first_socket(raw_socket, raw_cpu, name)
-    ddr_type = _ddr_type(raw_memory or name)
-    max_ram_gb = _gb(raw_max_ram or raw_memory)
-    max_ram_speed_mhz = _speed_mhz(raw_speed or raw_memory)
-    form_factor = _form_factor_list(raw_form or name)
-    ram_slots = _compat_memory_slots(raw_slots or raw_memory)
-    supported_cpu_gens = _compat_cpu_generations(raw_cpu)
-    m2_slots, sata_ports = _compat_storage_connectivity(raw_storage)
-
-    pcie_x16_slots = 1
-    if raw_pcie and not _is_na(raw_pcie):
-        slot_text = raw_pcie.upper().replace("×", "X")
-        count = 0
-        for match in re.finditer(r"(\d+)\s*[xX]\s*(?:PCI(?:E| EXPRESS)[^,\n;:]*)?[xX]\s*16", slot_text, re.IGNORECASE):
-            count += int(match.group(1))
-        if not count:
-            count = len(re.findall(r"PCI(?:E| EXPRESS)[^,\n;:]*[xX]\s*16|[xX]\s*16\s*SLOT", slot_text, re.IGNORECASE))
-        if count:
-            pcie_x16_slots = count
-
-    return {
-        "component_type": "Motherboard",
-        "socket": socket,
-        "form_factor": form_factor,
-        "ddr_type": ddr_type,
-        "max_ram_speed_mhz": max_ram_speed_mhz,
-        "max_ram_gb": max_ram_gb,
-        "ram_slots": ram_slots,
-        "pcie_x16_slots": pcie_x16_slots,
-        "m2_slots": m2_slots,
-        "sata_ports": sata_ports,
-        "supported_cpu_gens": supported_cpu_gens,
-    }
-
-
-def extract_ram(doc: dict) -> dict:
-    raw_type = _spec(doc, "Memory Type", "RAM Type", "Type", "Memory Technology")
-    raw_cap = _spec(doc, "Capacity", "RAM Capacity", "Total Capacity", "Memory Size", "Size", "Module Size")
-    raw_kit = _spec(doc, "RAM Channel Kit", "Kit Type", "Kit", "Number of Modules", "Configuration", "Module Configuration")
-    raw_speed = _spec(doc, "RAM Speed", "Tested Speed", "Speed", "Memory Speed", "Frequency", "Clock Speed")
-    raw_dimm = _spec(doc, "Package Memory Format", "Module Type", "Dimm Type", "DIMM Type", "Form Factor", "Memory Suitable For")
-
-    name = doc.get("name") or ""
-    modules: Optional[int] = None
-    for source in (raw_kit, raw_cap, name):
-        if not source:
-            continue
-        match = re.search(r"(\d+)\s*[xX]\s*\d+\s*GB", source, re.IGNORECASE)
-        if match:
-            modules = int(match.group(1))
-            break
-        match = re.search(r"\((\d+)\s*GB\s*[xX]\s*(\d+)\)", source, re.IGNORECASE)
-        if match:
-            modules = int(match.group(2))
-            break
-
-    return {
-        "component_type": "RAM",
-        "ddr_type": _ddr_type(raw_type or name),
-        "speed_mhz": _speed_mhz(raw_speed or name),
-        "capacity_gb": _gb(raw_cap or name),
-        "modules": modules,
-        "dimm_type": _compat_dimm_type(raw_dimm, name),
-    }
-
-
-def extract_psu(doc: dict) -> dict:
-    raw_watt = _spec(doc, "Wattage", "Power Output", "Capacity", "Max Power", "Continuous Power", "Power", "SMPS Watt", "Continuous power W", "Output Capacity")
-    raw_form = _spec(doc, "PSU Form Factor", "Form Factor", "Type")
-    raw_dims = _spec(doc, "Dimensions", "Dimension")
-    raw_pcie8 = _spec(doc, "PCIe Connector (6+2)", "PCIe Connector", "PCIe connectors", "PCI-E Connector")
-    raw_12vhpwr = _spec(doc, "PCIe 12+4-Pin 12VHPWR Connectors", "12VHPWR Connectors", "12V-2x6 Connectors")
-    raw_connectors = _spec(doc, "Cable Connectors", "Connector", "Connectors")
-
-    name = doc.get("name") or ""
-    connector_text = " ".join(part for part in (raw_connectors, raw_pcie8, raw_12vhpwr) if part and not _is_na(part))
-
-    pcie_8pin_connectors: Optional[int] = None
-    if raw_pcie8 and re.fullmatch(r"\s*(\d+)\s*", raw_pcie8):
-        pcie_8pin_connectors = int(raw_pcie8.strip())
-    else:
-        pcie_8pin_connectors = _compat_psu_connector_count(raw_pcie8, "8pin")
-    if pcie_8pin_connectors is None:
-        pcie_8pin_connectors = _compat_psu_connector_count(connector_text, "8pin")
-
-    pcie_16pin_connectors: Optional[int] = None
-    if raw_12vhpwr and re.fullmatch(r"\s*(\d+)\s*", raw_12vhpwr):
-        pcie_16pin_connectors = int(raw_12vhpwr.strip())
-    else:
-        pcie_16pin_connectors = _compat_psu_connector_count(raw_12vhpwr, "16pin")
-    if pcie_16pin_connectors is None:
-        pcie_16pin_connectors = _compat_psu_connector_count(connector_text, "16pin")
-
-    return {
-        "component_type": "PSU",
-        "wattage": _psu_watts(raw_watt or name),
-        "form_factor": _compat_psu_form_factor(raw_form, name),
-        "length_mm": _compat_first_dimension_mm(raw_dims),
-        "pcie_8pin_connectors": pcie_8pin_connectors,
-        "pcie_16pin_connectors": pcie_16pin_connectors,
-    }
-
-
-def extract_cooler(doc: dict) -> dict:
-    raw_type = _spec(doc, "Cooling Type", "Type", "Cooler Type")
-    raw_sockets = " ".join(
-        part for part in (
-            _spec(doc, "Socket Support", "Compatible Sockets", "Supported Sockets", "CPU Socket", "Socket Compatibility", "Socket", "Compatibility"),
-            _spec(doc, "CPU compatibility (Intel)"),
-            _spec(doc, "CPU compatibility (AMD)"),
-        )
-        if part
-    )
-    raw_tdp = _spec(doc, "TDP", "Max TDP", "Heat Dissipation", "Cooling Capacity", "Max CPU TDP")
-    raw_height = _spec(doc, "Height", "Cooler Height", "Overall Height", "Total Height", "Heatsink Dimensions", "Product Dimensions")
-    raw_radiator = _spec(doc, "Radiator Size", "Radiator Dimensions", "Radiator")
-
-    name = doc.get("name") or ""
-    cooler_text = f"{raw_type} {name}".upper()
-    cooler_type = "Air"
-    if any(token in cooler_text for token in ("LIQUID", "AIO", "WATER", "KRAKEN")):
-        cooler_type = "AIO"
-
-    radiator_sizes = _compat_radiator_sizes(raw_radiator, name)
-
-    return {
-        "component_type": "Cooler",
-        "cooler_type": cooler_type,
-        "supported_sockets": _compat_socket_list(raw_sockets),
-        "max_tdp_watts": _tdp_watts(raw_tdp),
-        "height_mm": _compat_last_dimension_mm(raw_height) if cooler_type == "Air" else None,
-        "radiator_size_mm": radiator_sizes[0] if radiator_sizes else None,
-    }
-
-
-def extract_cabinet(doc: dict) -> dict:
-    raw_mobo = _spec(doc, "Motherboard Support", "Motherboard Size", "Compatible Motherboards", "Supported Form Factors")
-    raw_cooler = _spec(doc, "Maximum CPU Cooler Height", "Max CPU Cooler Height", "CPU Cooler Height", "Max Cooler Height")
-    raw_gpu = _spec(doc, "Maximum GPU Length", "Max GPU Length", "Maximum Graphics Card Length", "Max Graphics Card Length")
-    raw_radiator = _spec(doc, "Radiator Support")
-    raw_psu = _spec(doc, "Maximum PSU Length", "Max PSU Length")
-    raw_bays = _spec(doc, "Drive Bays", "Storage")
-
-    hdd_bays, ssd_bays = _compat_drive_bays(raw_bays)
-
-    return {
-        "component_type": "Cabinet",
-        "supported_mobo_sizes": _form_factor_list(raw_mobo or (doc.get("name") or "")),
-        "max_cooler_height_mm": _mm(raw_cooler),
-        "max_gpu_length_mm": _mm(raw_gpu),
-        "radiator_support_mm": _compat_radiator_sizes(raw_radiator),
-        "max_psu_length_mm": _mm(raw_psu),
-        "hdd_bays": hdd_bays,
-        "ssd_bays": ssd_bays,
-    }
-
-
-def extract_storage(doc: dict) -> dict:
-    raw_cat = _spec(doc, "Category", "Type", "Drive Type", "Storage Type")
-    raw_form = _spec(doc, "Form Factor", "Drive Form Factor")
-    raw_nvme = _spec(doc, "NVMe", "NVMe Support", "NVMe PCIe")
-    raw_iface = _spec(doc, "Interface", "Connection", "Bus")
-
-    name = doc.get("name") or ""
-    combined_type = f"{raw_cat} {name}".upper()
-    drive_type = ""
-    if "SSD" in combined_type or "NVME" in combined_type:
-        drive_type = "SSD"
-    elif "HDD" in combined_type or "HARD DISK" in combined_type:
-        drive_type = "HDD"
-
-    combined_interface = f"{raw_iface} {raw_nvme} {name}".upper()
-    interface = ""
-    if "NVME" in combined_interface or "PCIE" in combined_interface or re.search(r"\bGEN[345]\b", combined_interface):
-        interface = "NVMe"
-    elif "SATA" in combined_interface:
-        interface = "SATA"
-    elif "SAS" in combined_interface:
-        interface = "SAS"
-
-    form_factor = _form_factor_list(raw_form or name)
-    if not form_factor and "M.2" in name.upper():
-        form_factor = ["M.2"]
-
-    return {
-        "component_type": "Storage",
-        "drive_type": drive_type,
-        "form_factor": form_factor,
-        "interface": interface,
-    }
-
 
 EXTRACTORS: dict[str, Any] = {
     "Processors":   extract_processor,
@@ -2103,34 +1198,6 @@ def run_collection(
     return total, len(results), len(failed_docs)
 
 
-def write_outputs(
-    collection_name: str,
-    results: list[dict],
-    quality: dict,
-    failed_docs: list[dict],
-    source_docs: Optional[list[dict]] = None,
-) -> None:
-    out_dir = os.path.join(OUTPUT_DIR, collection_name)
-    os.makedirs(out_dir, exist_ok=True)
-
-    with open(os.path.join(out_dir, "features.json"), "w", encoding="utf-8") as f:
-        f.write(_dump(results))
-    log.info("[%s] features.json -> %d records in %s", collection_name, len(results), out_dir)
-
-    with open(os.path.join(out_dir, "quality.json"), "w", encoding="utf-8") as f:
-        f.write(_dump(quality))
-
-    if failed_docs:
-        with open(os.path.join(out_dir, "failed.json"), "w", encoding="utf-8") as f:
-            f.write(_dump(failed_docs))
-        log.warning("[%s] %d failures -> failed.json", collection_name, len(failed_docs))
-
-    if source_docs is not None:
-        with open(os.path.join(out_dir, "source_docs.json"), "w", encoding="utf-8") as f:
-            f.write(_dump(source_docs))
-        log.info("[%s] source_docs.json -> %d records in %s", collection_name, len(source_docs), out_dir)
-
-
 def run_pipeline(only_collection: Optional[str], verbose: bool, dump_source_docs: bool) -> None:
     client = MongoClient(MONGO_URI)
     db     = client[DB_NAME]
@@ -2194,5 +1261,7 @@ def main() -> None:
     )
 
 
-if __name__ == "__main__":
+
+
+if __name__ == '__main__':
     main()

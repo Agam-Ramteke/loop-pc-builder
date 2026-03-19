@@ -19,7 +19,7 @@ export default function ProductCard({ component }: ProductCardProps) {
     <div className="bg-mid-gray border border-border-gray rounded-lg overflow-hidden hover:border-neon-blue transition-colors group flex flex-col h-full">
       <Link 
         href={`/product/${component.id}`} 
-        className="block relative h-48 bg-white shrink-0" 
+        className="block relative h-40 bg-white shrink-0" 
         style={{ maskImage: 'linear-gradient(to bottom, black 75%, transparent 100%)', WebkitMaskImage: 'linear-gradient(to bottom, black 75%, transparent 100%)' }}
       >
         <Image 
@@ -39,19 +39,20 @@ export default function ProductCard({ component }: ProductCardProps) {
         )}
       </Link>
       
-      <div className="p-4 flex flex-col flex-grow">
-        <div className="flex justify-between items-start mb-1">
+      <div className="p-4 flex flex-col flex-grow items-center text-center">
+        <div className="flex justify-center items-center gap-2 mb-1 w-full">
           <div className="text-[10px] text-gray-400 font-medium">{component.brand}</div>
+          <div className="text-[10px] text-gray-400 font-medium">•</div>
           <div className="text-[9px] font-bold text-neon-blue uppercase tracking-tighter opacity-70">
             {component.provider}
           </div>
         </div>
-        <Link href={`/product/${component.id}`} className="text-sm font-bold text-foreground mb-3 hover:text-neon-blue transition-colors line-clamp-2 h-10 leading-tight">
+        <Link href={`/product/${component.id}`} className="text-sm font-bold text-foreground mb-3 hover:text-neon-blue transition-colors line-clamp-2 h-10 leading-tight w-full flex items-center justify-center">
           {component.name}
         </Link>
         
-        <div className="text-[11px] text-gray-400 flex-grow mb-4 overflow-hidden">
-          <ul className="space-y-1.5">
+        <div className="text-[11px] text-gray-400 flex-grow mb-4 overflow-hidden w-full flex justify-center">
+          <ul className="space-y-1.5 text-center inline-block">
             {Object.entries(component.specs).slice(0, 3).map(([key, value]) => (
               <li key={key} className="line-clamp-1">
                 <span className="text-gray-500">{key}:</span> {value}
@@ -60,7 +61,7 @@ export default function ProductCard({ component }: ProductCardProps) {
           </ul>
         </div>
         
-        <div className="flex items-center justify-between mt-auto">
+        <div className="flex items-center justify-between mt-auto w-full">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xl font-bold text-foreground">₹{component.price.toLocaleString('en-IN')}</span>
             {component.originalPrice && component.originalPrice > component.price && (

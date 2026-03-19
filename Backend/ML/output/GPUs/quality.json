@@ -6,19 +6,29 @@
       "filled": 461,
       "total": 773
     },
-    "connector_type": {
-      "fill_rate_pct": 56.9,
-      "filled": 440,
-      "total": 773
-    },
-    "cuda_cores": {
-      "fill_rate_pct": 63.5,
-      "filled": 491,
-      "total": 773
-    },
-    "length_mm": {
+    "card_length_mm": {
       "fill_rate_pct": 36.1,
       "filled": 279,
+      "total": 773
+    },
+    "directx_version": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 773
+    },
+    "gpu_family": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 773
+    },
+    "gpu_vendor": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 773
+    },
+    "has_ray_tracing": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
       "total": 773
     },
     "memory_bus_bit": {
@@ -26,27 +36,37 @@
       "filled": 527,
       "total": 773
     },
-    "needs_power_connector": {
-      "fill_rate_pct": 59.2,
-      "filled": 458,
+    "memory_type": {
+      "fill_rate_pct": 82.4,
+      "filled": 637,
       "total": 773
     },
-    "pcie_gen": {
+    "output_ports_json": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 773
+    },
+    "pcie_interface": {
       "fill_rate_pct": 52.8,
       "filled": 408,
       "total": 773
     },
-    "psu_recommended_w": {
+    "recommended_psu_w": {
       "fill_rate_pct": 97.7,
       "filled": 755,
       "total": 773
     },
-    "slot_height_mm": {
-      "fill_rate_pct": 35.3,
-      "filled": 273,
+    "shader_count": {
+      "fill_rate_pct": 63.5,
+      "filled": 491,
       "total": 773
     },
-    "tdp_watts": {
+    "slot_width": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 773
+    },
+    "tdp_w": {
       "fill_rate_pct": 23.2,
       "filled": 179,
       "total": 773
@@ -54,16 +74,6 @@
     "vram_gb": {
       "fill_rate_pct": 97.7,
       "filled": 755,
-      "total": 773
-    },
-    "vram_type": {
-      "fill_rate_pct": 82.4,
-      "filled": 637,
-      "total": 773
-    },
-    "width_mm": {
-      "fill_rate_pct": 35.6,
-      "filled": 275,
       "total": 773
     }
   }

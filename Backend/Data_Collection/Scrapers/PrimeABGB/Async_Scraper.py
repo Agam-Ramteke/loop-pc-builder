@@ -213,6 +213,10 @@ def _parse_and_upsert(snapshot_path: str, product: dict, collection) -> None:
                     parsed_price[key] = bulk_price[key]
 
             parsed["price"] = parsed_price
+            
+        # ── Apply standard price formatting & image path ──
+        parsed["price"] = cf.get_price(parsed)
+        parsed["image_path"] = cf.normalize_image_path(parsed.get("image_path"))
 
         cf.upsert_product(collection, parsed)
     except Exception as exc:

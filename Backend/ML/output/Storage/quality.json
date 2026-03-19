@@ -1,9 +1,9 @@
 {
   "total_docs": 530,
   "fields": {
-    "drive_type": {
-      "fill_rate_pct": 87.7,
-      "filled": 465,
+    "capacity_gb": {
+      "fill_rate_pct": 22.3,
+      "filled": 118,
       "total": 530
     },
     "form_factor": {
@@ -11,9 +11,49 @@
       "filled": 530,
       "total": 530
     },
+    "has_dram_cache": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 530
+    },
     "interface": {
-      "fill_rate_pct": 89.1,
-      "filled": 472,
+      "fill_rate_pct": 88.9,
+      "filled": 471,
+      "total": 530
+    },
+    "nand_type": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 530
+    },
+    "rand_read_iops": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 530
+    },
+    "rand_write_iops": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 530
+    },
+    "seq_read_mbps": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 530
+    },
+    "seq_write_mbps": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 530
+    },
+    "tbw": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 530
+    },
+    "type": {
+      "fill_rate_pct": 87.7,
+      "filled": 465,
       "total": 530
     }
   }

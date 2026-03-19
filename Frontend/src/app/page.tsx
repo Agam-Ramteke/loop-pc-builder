@@ -44,7 +44,7 @@ interface DealItem {
 // ═══════════════════════════════════════════════════════════════════
 function HeroSection() {
   return (
-    <section className="relative w-full min-h-[45vh] flex flex-col items-center justify-center border-b border-border-gray overflow-hidden bg-dark-gray pt-16 pb-12 md:pt-20 md:pb-14">
+    <section className="relative w-full min-h-[40vh] flex flex-col items-center justify-center border-b border-border-gray overflow-hidden bg-dark-gray pt-12 pb-10 md:pt-16 md:pb-12">
       {/* Subtle gradient blobs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-[30%] -right-[10%] w-[60%] h-[120%] bg-neon-blue/[0.04] rounded-full blur-[100px]" />
@@ -131,7 +131,7 @@ function HeroSection() {
 // ═══════════════════════════════════════════════════════════════════
 function CategoryNavSection() {
   return (
-    <section className="pt-12 pb-16 bg-background border-b border-border-gray">
+    <section className="py-10 bg-background border-b border-border-gray">
       <div className="container mx-auto px-4">
         <AnimatedSection>
           <div className="text-center mb-10">
@@ -145,7 +145,7 @@ function CategoryNavSection() {
             <AnimatedSection key={cat.name} delay={i * 0.04}>
                 <Link
                   href={`/browse?category=${encodeURIComponent(cat.name)}`}
-                  className="group relative flex flex-col items-center justify-center gap-4 p-6 aspect-square rounded-[2rem] border border-border-gray bg-mid-gray/20 backdrop-blur-md transition-all duration-500 hover:scale-[1.05] hover:border-opacity-100 border-opacity-40 overflow-hidden active:scale-95"
+                  className="group relative flex flex-col items-center justify-center gap-3 p-4 aspect-square rounded-[2rem] border border-border-gray bg-mid-gray/20 backdrop-blur-md transition-all duration-500 hover:scale-[1.05] hover:border-opacity-100 border-opacity-40 overflow-hidden active:scale-95"
                   style={{ 
                     boxShadow: `inset 0 0 20px ${cat.color}05`,
                     borderColor: `${cat.color}20`
@@ -218,7 +218,7 @@ function TrendingSection({ parts }: { parts: Component[] }) {
   if (parts.length === 0) return null;
 
   return (
-    <section className="py-20 bg-dark-gray border-t border-b border-border-gray">
+    <section className="py-12 bg-dark-gray border-t border-b border-border-gray">
       <div className="container mx-auto px-4">
         <AnimatedSection>
           <div className="flex justify-between items-end mb-10">
@@ -254,7 +254,7 @@ function DealsSection({ deals }: { deals: DealItem[] }) {
   if (deals.length === 0) return null;
 
   return (
-    <section id="deals" className="py-20 bg-background border-b border-border-gray">
+    <section id="deals" className="py-12 bg-background border-b border-border-gray">
       <div className="container mx-auto px-4">
         <AnimatedSection>
           <div className="flex justify-between items-end mb-10">
@@ -312,7 +312,7 @@ function DealsSection({ deals }: { deals: DealItem[] }) {
 // ═══════════════════════════════════════════════════════════════════
 function BuildGuidesSection() {
   return (
-    <section id="build-guides" className="py-20 bg-dark-gray border-b border-border-gray">
+    <section id="build-guides" className="py-12 bg-dark-gray border-b border-border-gray">
       <div className="container mx-auto px-4">
         <AnimatedSection>
           <div className="text-center mb-12">
@@ -383,7 +383,7 @@ function BuildGuidesSection() {
 // ═══════════════════════════════════════════════════════════════════
 function BlogSection() {
   return (
-    <section id="blog" className="py-20 bg-background border-b border-border-gray">
+    <section id="blog" className="py-12 bg-background border-b border-border-gray">
       <div className="container mx-auto px-4">
         <AnimatedSection>
           <div className="flex justify-between items-end mb-10">
@@ -396,7 +396,7 @@ function BlogSection() {
                 <p className="text-gray-500 text-sm">Guides, reviews, and build inspiration</p>
               </div>
             </div>
-            <Link href="#" className="text-neon-blue hover:text-neon-blue/80 text-sm font-medium flex items-center gap-1 group">
+            <Link href="/blog" className="text-neon-blue hover:text-neon-blue/80 text-sm font-medium flex items-center gap-1 group">
               All posts <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
             </Link>
           </div>
@@ -481,7 +481,7 @@ function CommunitySection() {
   }, []);
 
   return (
-    <section id="community" className="py-20 bg-dark-gray border-b border-border-gray">
+    <section id="community" className="py-12 bg-dark-gray border-b border-border-gray">
       <div className="container mx-auto px-4">
         <AnimatedSection>
           <div className="text-center mb-12">

@@ -1,19 +1,109 @@
 {
   "total_docs": 157,
   "fields": {
-    "ddr_support": {
-      "fill_rate_pct": 80.3,
-      "filled": 126,
+    "architecture": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 157
+    },
+    "base_clock_mhz": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 157
+    },
+    "boost_clock_mhz": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 157
+    },
+    "cores_efficiency": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 157
+    },
+    "cores_performance": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 157
+    },
+    "cores_total": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 157
+    },
+    "has_igpu": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 157
+    },
+    "igpu_model": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 157
+    },
+    "l3_cache_mb": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 157
+    },
+    "manufacturing_nm": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 157
+    },
+    "max_memory_channels": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 157
+    },
+    "max_memory_speed_mhz": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 157
+    },
+    "max_tdp_w": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 157
+    },
+    "memory_type": {
+      "fill_rate_pct": 50.3,
+      "filled": 79,
+      "total": 157
+    },
+    "pcie_version": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 157
+    },
+    "platform": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 157
+    },
+    "series": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
       "total": 157
     },
     "socket": {
-      "fill_rate_pct": 100.0,
-      "filled": 157,
+      "fill_rate_pct": 78.3,
+      "filled": 123,
       "total": 157
     },
-    "tdp_watts": {
+    "tdp_w": {
       "fill_rate_pct": 51.6,
       "filled": 81,
+      "total": 157
+    },
+    "threads": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 157
+    },
+    "unlocked": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
       "total": 157
     }
   }
