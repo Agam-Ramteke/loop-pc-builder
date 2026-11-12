@@ -177,22 +177,33 @@ async function countMatchingComponents(
   return countResults.reduce((sum, count) => sum + count, 0);
 }
 
+function parsePositiveInt(value: string | null, fallback: number, max?: number): number {
+  const normalized = value?.trim();
+  if (!normalized || !/^[0-9]+$/.test(normalized)) return fallback;
+  const parsed = Number(normalized);
+  if (!Number.isSafeInteger(parsed) || parsed < 1) return fallback;
+  return max === undefined ? parsed : Math.min(parsed, max);
+}
+
+function parseOptionalNumber(value: string | null): number | null {
+  const normalized = value?.trim();
+  if (!normalized || !/^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/.test(normalized)) return null;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const categoryQuery = searchParams.get('category');
     const searchQuery = searchParams.get('search');
     const sortBy = searchParams.get('sort');
-    const parsedPage = Number.parseInt(searchParams.get('page') || '1', 10);
-    const parsedLimit = Number.parseInt(searchParams.get('limit') || '21', 10);
-    const page = Number.isFinite(parsedPage) ? Math.max(parsedPage, 1) : 1;
-    const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 100) : 21;
+    const page = parsePositiveInt(searchParams.get('page'), 1);
+    const limit = parsePositiveInt(searchParams.get('limit'), 21, 100);
     const skip = (page - 1) * limit;
-    const minPrice = searchParams.has('minPrice') ? Number.parseFloat(searchParams.get('minPrice') || '') : null;
-    const maxPrice = searchParams.has('maxPrice') ? Number.parseFloat(searchParams.get('maxPrice') || '') : null;
+    const safeMinPrice = parseOptionalNumber(searchParams.get('minPrice'));
+    const safeMaxPrice = parseOptionalNumber(searchParams.get('maxPrice'));
     const inStockOnly = searchParams.get('inStock') === 'true';
-    const safeMinPrice = Number.isFinite(minPrice) ? minPrice : null;
-    const safeMaxPrice = Number.isFinite(maxPrice) ? maxPrice : null;
 
     const cacheKey = buildCacheKey('components:browse:v1', {
       category: categoryQuery || 'All',
