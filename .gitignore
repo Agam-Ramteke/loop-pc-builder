@@ -91,3 +91,13 @@ async_snapshots/
 *.7z
 *.sql
 *.sqlite3
+!Backend/db/schema.sql
+
+
+# --- Obsidian Vault Machine State ---
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.obsidian/cache/
+docs/.obsidian/workspace.json
+docs/.obsidian/workspace-mobile.json
+docs/.obsidian/cache/
