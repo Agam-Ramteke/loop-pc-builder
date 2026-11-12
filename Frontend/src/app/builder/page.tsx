@@ -1,105 +1,72 @@
 'use client';
 
-import React, { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useBuild } from '@/context/BuildContext';
-import { ComponentCategory } from '@/data/mockData';
-import BuildSlot from '@/components/BuildSlot';
-import CompatibilityBanner from '@/components/CompatibilityBanner';
+import { ArrowRight, BrainCircuit, Boxes, WandSparkles } from 'lucide-react';
 
-const BUILD_CATEGORIES: ComponentCategory[] = [
-  'CPU', 'CPU Cooler', 'Motherboard', 'Memory', 'Storage', 'Video Card', 'Case', 'Power Supply'
+const PATHS = [
+  {
+    href: '/builder/recommendation',
+    label: 'Guided Recommendation',
+    title: 'Recommend my build',
+    description: 'Set your budget, purpose, and priorities, then get a starting draft.',
+    icon: BrainCircuit,
+    tone: 'border-neon-blue/30 bg-neon-blue/10 text-neon-blue',
+  },
+  {
+    href: '/builder/custom',
+    label: 'Custom Build',
+    title: 'Choose parts manually',
+    description: 'Open the slot-by-slot builder directly and hand-pick every component.',
+    icon: Boxes,
+    tone: 'border-border-gray bg-mid-gray/60 text-gray-300',
+  },
 ];
 
 export default function BuilderPage() {
-  const router = useRouter();
-  const { build, totalPrice, totalWattage, clearBuild } = useBuild();
-
-  const handleChoose = (category: ComponentCategory) => {
-    // In our quick prototype, choosing a component navigates to browse pre-filtered
-    // In a final app, this could open a modal over the same page
-    // Using localStorage or state preservation, the context provider handles it across pages
-    router.push(`/browse?category=${encodeURIComponent(category)}`);
-  };
-
   return (
-    <div className="container mx-auto px-4 py-8">
-      
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight mb-2">PC Builder</h1>
-          <p className="text-gray-400">Select components below to draft your ultimate setup.</p>
+    <div className="container mx-auto px-4 py-8 md:py-10">
+      <section className="relative overflow-hidden rounded-[32px] border border-border-gray bg-background shadow-[0_25px_80px_rgba(0,0,0,0.35)]">
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute -left-20 top-0 h-64 w-64 rounded-full bg-neon-blue/10 blur-[90px]" />
+          <div className="absolute -right-20 bottom-0 h-72 w-72 rounded-full bg-neon-green/10 blur-[120px]" />
         </div>
-        <div className="flex gap-4">
-          <button 
-            onClick={clearBuild}
-            className="px-4 py-2 border border-red-500/50 text-red-500 hover:bg-red-500/10 rounded-md transition-colors font-medium text-sm"
-          >
-            Clear Build
-          </button>
-        </div>
-      </div>
 
-      {/* Compatibility Checker */}
-      <div className="mb-8">
-        <CompatibilityBanner />
-      </div>
-
-      <div className="flex flex-col lg:flex-row gap-8">
-        
-        {/* Builder Slots */}
-        <div className="flex-grow flex flex-col gap-4">
-          <div className="bg-dark-gray border-b border-border-gray px-4 py-3 rounded-t-lg hidden sm:flex text-sm font-bold text-gray-500">
-            <div className="w-48">Component</div>
-            <div className="flex-grow">Selection</div>
+        <div className="relative grid gap-6 p-6 md:p-8 xl:grid-cols-[0.82fr_1.18fr] xl:items-center xl:p-10">
+          <div className="max-w-2xl">
+            <div className="inline-flex items-center gap-2 rounded-full border border-neon-blue/30 bg-neon-blue/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-neon-blue">
+              <WandSparkles className="h-3.5 w-3.5" />
+              Start Building
+            </div>
+            <h1 className="mt-5 text-4xl font-heading font-extrabold tracking-tight text-foreground md:text-5xl">
+              Pick your builder flow.
+            </h1>
+            <p className="mt-3 max-w-xl text-sm leading-7 text-gray-400 md:text-base">
+              Guided recommendations and custom part selection now live on separate pages. Use this builder entry point to switch between them.
+            </p>
           </div>
-          
-          <div className="bg-background rounded-b-lg flex flex-col gap-2">
-            {BUILD_CATEGORIES.map(category => (
-              <BuildSlot 
-                key={category}
-                category={category}
-                component={build[category]}
-                onChoose={handleChoose}
-              />
+
+          <div className="grid gap-4 md:grid-cols-2">
+            {PATHS.map((path) => (
+              <Link
+                key={path.href}
+                href={path.href}
+                className="group rounded-[28px] border border-border-gray bg-mid-gray/60 p-5 transition-all duration-300 hover:border-foreground/20 hover:bg-mid-gray"
+              >
+                <div className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl border ${path.tone}`}>
+                  <path.icon className="h-5 w-5" />
+                </div>
+                <p className="mt-5 text-[11px] font-semibold uppercase tracking-[0.24em] text-gray-500">{path.label}</p>
+                <h2 className="mt-2 text-2xl font-bold text-foreground">{path.title}</h2>
+                <p className="mt-3 text-sm leading-6 text-gray-400">{path.description}</p>
+                <div className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-foreground">
+                  Open flow
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                </div>
+              </Link>
             ))}
           </div>
         </div>
-
-        {/* Build Summary Sidebar */}
-        <aside className="w-full lg:w-80 flex-shrink-0">
-          <div className="bg-mid-gray/50 border border-border-gray rounded-lg p-6 sticky top-24">
-            <h3 className="text-xl font-bold mb-6 border-b border-border-gray pb-4">Build Summary</h3>
-            
-            <div className="space-y-4 mb-6">
-              <div className="flex justify-between items-center text-gray-300">
-                <span>Base Total</span>
-                <span className="font-mono">₹{totalPrice.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between items-center text-gray-300">
-                <span>Estimated Wattage</span>
-                <span className="font-mono text-neon-blue">{totalWattage}W</span>
-              </div>
-            </div>
-
-            <div className="border-t border-border-gray pt-4 mb-8">
-              <div className="flex justify-between items-center">
-                <span className="font-bold text-lg text-foreground">Total Cost</span>
-                <span className="font-bold text-2xl text-neon-green font-mono">₹{totalPrice.toFixed(2)}</span>
-              </div>
-            </div>
-
-            <button className="w-full bg-foreground text-background font-bold py-3 rounded-md hover:bg-gray-300 transition-colors shadow-lg">
-              Buy Components 
-            </button>
-            <p className="text-xs text-center text-gray-500 mt-4">
-              Links will direct you to optimal retailers based on current pricing.
-            </p>
-          </div>
-        </aside>
-
-      </div>
+      </section>
     </div>
   );
 }

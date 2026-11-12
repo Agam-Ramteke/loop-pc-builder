@@ -1,0 +1,80 @@
+{
+  "total_docs": 423,
+  "fields": {
+    "color": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 423
+    },
+    "drive_bays_25": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 423
+    },
+    "drive_bays_35": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 423
+    },
+    "expansion_slots": {
+      "fill_rate_pct": 63.8,
+      "filled": 270,
+      "total": 423
+    },
+    "form_factor_support": {
+      "fill_rate_pct": 100.0,
+      "filled": 423,
+      "total": 423
+    },
+    "front_usb_ports_json": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 423
+    },
+    "has_rgb": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 423
+    },
+    "has_tempered_glass": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 423
+    },
+    "has_type_c_front": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 423
+    },
+    "material": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 423
+    },
+    "max_cpu_cooler_height_mm": {
+      "fill_rate_pct": 34.5,
+      "filled": 146,
+      "total": 423
+    },
+    "max_gpu_length_mm": {
+      "fill_rate_pct": 33.6,
+      "filled": 142,
+      "total": 423
+    },
+    "max_psu_length_mm": {
+      "fill_rate_pct": 29.8,
+      "filled": 126,
+      "total": 423
+    },
+    "radiator_support_front_mm": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 423
+    },
+    "radiator_support_top_mm": {
+      "fill_rate_pct": 0.0,
+      "filled": 0,
+      "total": 423
+    }
+  }
+}

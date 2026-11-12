@@ -1,41 +1,12 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
-import { motion } from 'framer-motion';
-
 export default function CursorAndBackground() {
-  const [mousePosition, setMousePosition] = useState({ x: -100, y: -100 });
-  const [isHovering, setIsHovering] = useState(false);
-  
-  useEffect(() => {
-    const updateMousePosition = (e: MouseEvent) => {
-      setMousePosition({ x: e.clientX, y: e.clientY });
-      
-      const target = e.target as HTMLElement;
-      if (target && (target.tagName.toLowerCase() === 'button' || target.tagName.toLowerCase() === 'a' || target.closest('button') || target.closest('a'))) {
-        setIsHovering(true);
-      } else {
-        setIsHovering(false);
-      }
-    };
-    
-    window.addEventListener('mousemove', updateMousePosition);
-    return () => {
-      window.removeEventListener('mousemove', updateMousePosition);
-    };
-  }, []);
-
   return (
-    <>
-      <div className="fixed inset-0 pointer-events-none z-[-1] overflow-hidden">
-        {/* Ambient Top and Bottom Glow mimicking Antigravity */}
-        <div className="absolute top-0 left-0 w-full h-[300px] bg-gradient-to-b from-neon-blue/10 to-transparent dark:from-neon-blue/20"></div>
-        <div className="absolute bottom-0 left-0 w-full h-[300px] bg-gradient-to-t from-neon-blue/10 to-transparent dark:from-neon-blue/20"></div>
-      </div>
-      
-
-      
-      
-    </>
+    <div className="pointer-events-none fixed inset-0 z-[-1] overflow-hidden">
+      <div className="absolute inset-x-0 top-0 h-72 bg-gradient-to-b from-neon-blue/8 via-neon-blue/4 to-transparent dark:from-neon-blue/14 dark:via-neon-blue/5" />
+      <div className="absolute inset-x-0 bottom-0 h-72 bg-gradient-to-t from-neon-green/6 via-neon-green/3 to-transparent dark:from-neon-green/8 dark:via-neon-green/4" />
+      <div className="absolute left-[-10%] top-[18%] h-72 w-72 rounded-full bg-neon-blue/8 blur-[120px] dark:bg-neon-blue/12" />
+      <div className="absolute right-[-8%] top-[12%] h-80 w-80 rounded-full bg-neon-green/6 blur-[140px] dark:bg-neon-green/10" />
+    </div>
   );
 }

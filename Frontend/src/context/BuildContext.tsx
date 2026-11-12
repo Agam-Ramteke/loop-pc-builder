@@ -14,6 +14,7 @@ interface BuildContextType {
   totalWattage: number;
   compatibility: CompatibilityReport;
   addComponent: (component: Component) => void;
+  replaceBuild: (components: Component[]) => void;
   removeComponent: (category: ComponentCategory) => void;
   clearBuild: () => void;
   checkBuildCompatibility: () => Promise<void>;
@@ -22,17 +23,19 @@ interface BuildContextType {
 
 const BuildContext = createContext<BuildContextType | undefined>(undefined);
 
+const createInitialBuildState = (): BuildState => ({
+  'CPU': null,
+  'CPU Cooler': null,
+  'Motherboard': null,
+  'Memory': null,
+  'Storage': null,
+  'Video Card': null,
+  'Case': null,
+  'Power Supply': null,
+});
+
 export const BuildProvider = ({ children }: { children: ReactNode }) => {
-  const [build, setBuild] = useState<BuildState>({
-    'CPU': null,
-    'CPU Cooler': null,
-    'Motherboard': null,
-    'Memory': null,
-    'Storage': null,
-    'Video Card': null,
-    'Case': null,
-    'Power Supply': null,
-  });
+  const [build, setBuild] = useState<BuildState>(createInitialBuildState);
 
   const [compatibility, setCompatibility] = useState<CompatibilityReport>({
     isValid: true,
@@ -71,6 +74,16 @@ export const BuildProvider = ({ children }: { children: ReactNode }) => {
     }));
   };
 
+  const replaceBuild = (components: Component[]) => {
+    const nextBuild = createInitialBuildState();
+
+    for (const component of components) {
+      nextBuild[component.category] = component;
+    }
+
+    setBuild(nextBuild);
+  };
+
   const removeComponent = (category: ComponentCategory) => {
     setBuild((prev) => ({
       ...prev,
@@ -79,16 +92,7 @@ export const BuildProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const clearBuild = () => {
-    setBuild({
-      'CPU': null,
-      'CPU Cooler': null,
-      'Motherboard': null,
-      'Memory': null,
-      'Storage': null,
-      'Video Card': null,
-      'Case': null,
-      'Power Supply': null,
-    });
+    setBuild(createInitialBuildState());
   };
 
   return (
@@ -99,6 +103,7 @@ export const BuildProvider = ({ children }: { children: ReactNode }) => {
         totalWattage,
         compatibility,
         addComponent,
+        replaceBuild,
         removeComponent,
         clearBuild,
         checkBuildCompatibility,

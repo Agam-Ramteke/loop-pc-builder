@@ -1,4 +1,4 @@
-import { mockComponents, Component, ComponentCategory } from "../data/mockData";
+import { Component, ComponentCategory } from "../data/mockData";
 
 /**
  * Live API Service connected to Next.js API Routes querying MongoDB
@@ -61,8 +61,6 @@ export interface CompatibilityReport {
 }
 
 export const checkCompatibility = async (buildItems: Component[]): Promise<CompatibilityReport> => {
-  await new Promise((resolve) => setTimeout(resolve, 400));
-
   const report: CompatibilityReport = {
     isValid: true,
     warnings: [],

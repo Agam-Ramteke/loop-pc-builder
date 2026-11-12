@@ -44,7 +44,7 @@ export const blogPosts: BlogPost[] = [
     id: 'blog-4',
     title: 'How to Choose the Right Power Supply for Your Build',
     excerpt: 'Don\'t cheap out on your PSU. Learn about efficiency ratings, modular vs non-modular, and how to calculate the wattage you actually need.',
-    image: 'https://images.unsplash.com/photo-1585800473926-24e543666f7f?q=80&w=600&auto=format&fit=crop',
+    image: 'https://images.unsplash.com/photo-1587202372634-32705e3bf49c?q=80&w=600&auto=format&fit=crop',
     date: 'Mar 2, 2026',
     category: 'Guide',
     readTime: '10 min read',
